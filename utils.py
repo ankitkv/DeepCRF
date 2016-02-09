@@ -33,7 +33,8 @@ class Config:
                  use_convo=True, bi_convo=False, conv_window=5, conv_dim=200,
                  pot_size=1,
                  pred_window=1, tag_list=[],
-                 verbose=False, num_epochs=10, num_predict=5):
+                 verbose=False, num_epochs=10, num_predict=5,
+                 improvement_threshold=0.995, patience_increase=2.0):
         # optimization parameters
         self.batch_size = batch_size
         self.learning_rate = learning_rate
@@ -77,6 +78,8 @@ class Config:
         self.verbose = verbose
         self.num_epochs = num_epochs
         self.num_predict = num_predict
+        self.improvement_threshold = improvement_threshold
+        self.patience_increase = patience_increase
 
     def make_mappings(self, data):
         self.feature_maps = dict([(feat, {'lookup': {'_unk_': 0},
@@ -484,4 +487,5 @@ def evaluate(sentences, threshold):
     else:
         f1 =  2 * (prec * recall) / (prec + recall)
     print 'TH:', threshold, '\t', 'P:', prec, '\t', 'R:', recall, '\t', 'F:', f1
+    return f1
 

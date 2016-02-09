@@ -34,7 +34,8 @@ config.learning_rate = 5e-4
 config.gradient_clip = 5
 config.param_clip = 50
 
-config.num_epochs = 12
+config.num_epochs = 8
+config.patience_increase = 1.8
 
 config.optimizer = 'adam'
 config.batch_size = 50
