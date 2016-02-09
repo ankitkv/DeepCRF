@@ -25,8 +25,7 @@ def linearize_indices(indices, dims):
 ###############################################
 class Config:
     def __init__(self, batch_size=20, learning_rate=1e-2,
-                 l1_reg=1e-2, l1_list=[], l2_reg=1e-2, l2_list=[],
-                 nn_obj_weight=-1,
+                 nn_obj_weight=-1, dropout_keep_prob=0.5,
                  optimizer='adam', criterion='likelihood',
                  gradient_clip=1e0, param_clip=1e2,
                  features_dim=200, init_words=False,
@@ -39,10 +38,7 @@ class Config:
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         # regularization parameters
-        self.l1_reg = l1_reg
-        self.l1_list = l1_list
-        self.l2_reg = l2_reg
-        self.l2_list = l2_list
+        self.dropout_keep_prob = dropout_keep_prob
         self.nn_obj_weight = nn_obj_weight  # for mixed training
         # optimization configuration
         self.optimizer = optimizer          # ['adam', 'adagrad']
@@ -271,14 +267,15 @@ def L2_norm(tensor):
 # Model use functions                         #
 ###############################################
 # making a feed dictionary:
-def make_feed_crf(model, batch):
+def make_feed_crf(model, batch, keep_prob):
     f_dict = {model.input_ids: batch.features,
               model.pot_indices: batch.tag_neighbours_lin,
               model.window_indices: batch.tag_windows_lin,
               model.mask: batch.mask,
               model.targets: batch.tags_one_hot,
               model.tags: batch.tags,
-              model.nn_targets: batch.tag_windows_one_hot}
+              model.nn_targets: batch.tag_windows_one_hot,
+              model.keep_prob: keep_prob}
     return f_dict
 
 
@@ -307,7 +304,7 @@ def tag_dataset(pre_data, config, params, mod_type, model):
             f_dict = {sequ_nn_tmp.input_ids: batch.features}
             preds_layer_output = sequ_nn_tmp.preds_layer.eval(feed_dict=f_dict)
         elif mod_type == 'CRF':
-            f_dict = make_feed_crf(model, batch)
+            f_dict = make_feed_crf(model, batch, 1.0)
             preds_layer_output = tf.argmax(model.map_tagging, 2).eval(feed_dict=f_dict)
         tmp_preds = [[(batch.tags[i][j], token_preds)
                       for j, token_preds in enumerate(sentence) if 1 in batch.tag_windows_one_hot[i][j]]

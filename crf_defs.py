@@ -342,11 +342,13 @@ class CRF:
         self.window_indices = tf.placeholder(tf.int32)
         # nn_targets <- batch.tag_windows_one_hot
         self.nn_targets = tf.placeholder(tf.float32)
+        # keep prob
+        self.keep_prob = tf.placeholder(tf.float32)
+        # global step
+        self.global_step = tf.Variable(0.0, trainable=False)
     
     def make(self, config, params, reuse=False, name='CRF'):
         with tf.variable_scope(name):
-            self.l1_norm = tf.reduce_sum(tf.zeros([1]))
-            self.l2_norm = tf.reduce_sum(tf.zeros([1]))
             ### EMBEDDING LAYER
             if reuse:
                 tf.get_variable_scope().reuse_variables()
@@ -355,10 +357,6 @@ class CRF:
                                                     config, params,
                                                     reuse=reuse)
             params.embeddings = embeddings
-            for feat in config.l1_list:
-                self.l1_norm += L1_norm(params.embeddings[feat])
-            for feat in config.l2_list:
-                self.l2_norm += L2_norm(params.embeddings[feat])
             if config.verbose:
                 print('features layer done')
             # convolution
@@ -367,16 +365,17 @@ class CRF:
                     (out_layer, W_pre_conv, b_pre_conv) = convo_layer(out_layer,
                                                                       config,
                                                                       params)
-                    self.l2_norm += L2_norm(W_pre_conv) + L2_norm(b_pre_conv)
                     out_layer = tf.nn.relu(out_layer)
                 (out_layer, W_conv, b_conv) = convo_layer(out_layer, config,
                                                           params, reuse=reuse)
                 params.W_conv = W_conv
                 params.b_conv = b_conv
-                self.l2_norm += L2_norm(W_conv) + L2_norm(b_conv)
                 if config.verbose:
                     print('convolution layer done')
-                out_layer = tf.nn.tanh(out_layer)
+                out_layer = tf.nn.relu(out_layer)
+
+            out_layer = tf.nn.dropout(out_layer, self.keep_prob)
+
             self.out_layer = out_layer
             ### SEQU-NN
             if config.nn_obj_weight > 0:
@@ -384,7 +383,6 @@ class CRF:
                                                               params, reuse=reuse)
                 params.W_pred = W_pred
                 params.b_pred = b_pred
-                self.l2_norm += L2_norm(W_pred) + L2_norm(b_pred)
                 self.preds_layer = preds_layer
                 (cross_entropy, accu_nn) = optim_outputs(preds_layer,
                                                           self.nn_targets,
@@ -395,12 +393,10 @@ class CRF:
                                                        params, reuse=reuse)
             params.W_pot_bin = W_p_b
             params.b_pot_bin = b_p_b
-            self.l2_norm += L2_norm(W_p_b) + L2_norm(b_p_b)
             (un_pots, W_p_u, b_p_u) = unary_log_pots(out_layer, self.mask, config,
                                                      params, reuse=reuse)
             params.W_pot_un = W_p_u
             params.b_pot_un = b_p_u
-            self.l2_norm += L2_norm(W_p_u) + L2_norm(b_p_u)
             pots_layer = log_pots(un_pots, bin_pots, config, params)
             if config.verbose:
                 print('potentials layer done')
@@ -438,9 +434,7 @@ class CRF:
             # different criteria
             self.criteria = {}
             self.criteria['likelihood'] = -self.log_likelihood
-            norm_penalty = config.l1_reg * self.l1_norm + config.l2_reg * self.l2_norm
             for k in self.criteria:
-                self.criteria[k] += norm_penalty
                 if config.nn_obj_weight > 0:
                     self.criteria[k] -= (config.nn_obj_weight * cross_entropy)
             # corresponding training steps, gradient clipping
@@ -465,7 +459,7 @@ class CRF:
                                      for g, v in uncapped_g_v]
             self.train_steps = {}
             for k, g_v in grads_and_vars.items():
-                self.train_steps[k] = optimizers[k].apply_gradients(g_v)
+                self.train_steps[k] = optimizers[k].apply_gradients(g_v, global_step=self.global_step)
     
     def train_epoch(self, data, config, params):
         batch_size = config.batch_size
@@ -477,7 +471,7 @@ class CRF:
         batch = Batch()
         for i in range(n_batches):
             batch.read(data, i * batch_size, config, fill=True)
-            f_dict = make_feed_crf(self, batch)
+            f_dict = make_feed_crf(self, batch, config.dropout_keep_prob)
             if config.verbose and (i == 0):
                 print('First crit: %f' % (criterion.eval(feed_dict=f_dict),))
             train_step.run(feed_dict=f_dict)
@@ -485,10 +479,9 @@ class CRF:
             total_crit += crit
             if config.verbose and i % 50 == 0:
                 train_accuracy = self.accuracy.eval(feed_dict=f_dict)
-                print("step %d of %d, training accuracy %f, criterion %f, ll %f, l1 %f, l2 %f" %
+                print("step %d of %d, training accuracy %f, criterion %f, ll %f" %
                       (i, n_batches, train_accuracy, crit,
-                       self.log_likelihood.eval(feed_dict=f_dict),
-                       self.l1_norm.eval(), self.l2_norm.eval()))
+                       self.log_likelihood.eval(feed_dict=f_dict)))
         print 'total crit', total_crit / n_batches
         return total_crit / n_batches
     
@@ -500,7 +493,7 @@ class CRF:
         total = 0.
         for i in range(len(data) / batch_size):
             batch.read(data, i * batch_size, config, fill=True)
-            f_dict = make_feed_crf(self, batch)
+            f_dict = make_feed_crf(self, batch, 1.0)
             dev_accuracy = self.accuracy.eval(feed_dict=f_dict)
             ll = self.log_likelihood.eval(feed_dict=f_dict)
             total_accuracy += dev_accuracy

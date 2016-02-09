@@ -27,10 +27,9 @@ input_features = ['word', 'lemma', 'pos', 'normal', 'word_length',
 
 config = Config(input_features=input_features, tag_list=tag_list)
 
-config.l1_list = ['word', 'lemma', 'normal', 'prefix', 'suffix']
+config.dropout_keep_prob = 0.5
 
 config.learning_rate = 5e-4
-config.l2_list = config.input_features
 
 config.gradient_clip = 5
 config.param_clip = 50
