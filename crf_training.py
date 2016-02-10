@@ -14,12 +14,9 @@ features = []
 
 def main():
     # load the data
-    #train_data, dev_data = read_data(train_file, features, config, 10000)
-    #test_data = read_data(dev_file, features, config)
-    train_data = read_data(train_file, features, config)
-    dev_data = read_data(dev_file, features, config)
-    #config.make_mappings(train_data + dev_data + test_data)
-    config.make_mappings(train_data + dev_data)
+    train_data, dev_data = read_data(train_file, features, config, 10000)
+    test_data = read_data(dev_file, features, config)
+    config.make_mappings(train_data + dev_data + test_data)
     # initialize the parameters
     if config.init_words:
         word_vectors = read_vectors(vecs_file,
@@ -61,10 +58,10 @@ def main():
         sentences = preds_to_sentences(preds, config)
         print 'dev epoch', i, '\t', str(datetime.now())
         f1 = evaluate(sentences, 0.5)
-        #preds = tag_dataset(test_data, config, params_crf, 'CRF', crf)
-        #sentences = preds_to_sentences(preds, config)
-        #print 'test epoch', i, '\t', str(datetime.now())
-        #test_f1 = evaluate(sentences, 0.5)
+        preds = tag_dataset(test_data, config, params_crf, 'CRF', crf)
+        sentences = preds_to_sentences(preds, config)
+        print 'test epoch', i, '\t', str(datetime.now())
+        test_f1 = evaluate(sentences, 0.5)
         if f1 > best_f1:
             print 'found new best!'
             old_p = patience
@@ -79,7 +76,7 @@ def main():
                     print 'increasing patience from', old_p, 'to', patience
             best_f1 = f1
             best_train_f1 = train_f1
-            #best_test_f1 = test_f1
+            best_test_f1 = test_f1
         print 'best dev F1 is:', best_f1
         print ' with train F1:', best_train_f1
         print '   and test F1:', best_test_f1
@@ -96,9 +93,15 @@ if __name__ == "__main__":
                                      various parameter values')
     parser.add_argument("-conf", "--config_file",
                         help="location of configuration file")
+    parser.add_argument("-dropout", "--dropout",
+                        help="dropout keep probability")
     args = parser.parse_args()
     if args.config_file:
         config_file = os.path.abspath(args.config_file)
     print 'Starting'
     execfile(config_file)
+    if args.dropout:
+        dropout = float(args.dropout)
+        print 'Using the provided keep_prob value of', dropout
+        config.dropout_keep_prob = dropout
     main()

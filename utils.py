@@ -28,7 +28,7 @@ class Config:
                  nn_obj_weight=-1, dropout_keep_prob=0.5,
                  optimizer='adam', criterion='likelihood',
                  gradient_clip=1e0, param_clip=1e2,
-                 feature_dims={}, init_words=False,
+                 features_dim=200, init_words=False,
                  input_features=[], combine='sum',
                  use_convo=True, bi_convo=False, conv_window=5, conv_dim=200,
                  pot_size=1,
@@ -47,7 +47,7 @@ class Config:
         self.gradient_clip = gradient_clip
         self.param_clip = param_clip
         # input layer
-        self.feature_dims = feature_dims
+        self.features_dim = features_dim
         self.init_words = init_words
         self.input_features = input_features
         self.combine = combine
