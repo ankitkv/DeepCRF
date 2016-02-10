@@ -46,7 +46,8 @@ def bias_variable(shape, name='weight'):
 ###################################
 def feature_layer(in_layer, config, params, reuse=False):
     in_features = config.input_features
-    features_dim = config.features_dim
+    feature_dims = config.feature_dims
+    max_dim = max(feature_dims.values())
     batch_size = config.batch_size
     feature_mappings = config.feature_maps
     # inputs
@@ -67,17 +68,23 @@ def feature_layer(in_layer, config, params, reuse=False):
                                   name=feat + '_embedding',
                                   trainable=False)
                 initial = tf.truncated_normal([int(embeddings.get_shape()[1]),
-                                               features_dim], stddev=0.1)
+                                               max_dim], stddev=0.1)
                 transform_matrix = tf.Variable(initial,
                                                name=feat + '_transform')
                 clipped_transform = tf.clip_by_norm(transform_matrix,
                                                     config.param_clip)
                 param_vars[feat] = tf.matmul(embeddings, clipped_transform)
             else:
-                shape = [len(feature_mappings[feat]['reverse']), features_dim]
+                initial = tf.truncated_normal([feature_dims[feat], max_dim], stddev=0.1)
+                transform_matrix = tf.Variable(initial,
+                                               name=feat + '_transform')
+                clipped_transform = tf.clip_by_norm(transform_matrix,
+                                                    config.param_clip)
+                shape = [len(feature_mappings[feat]['reverse']), feature_dims[feat]]
                 initial = tf.truncated_normal(shape, stddev=0.1)
                 param_vars[feat] = tf.Variable(initial,
                                                name=feat + '_embedding')
+                param_vars[feat] = tf.matmul(param_vars[feat], clipped_transform)
     params = [param_vars[feat] for feat in in_features]
     input_embeddings = tf.nn.embedding_lookup(params, input_ids,
                                               name='lookup')
@@ -94,7 +101,7 @@ def distance_dependent(in_layer, config, params, reuse=False):
     conv_window = config.conv_window
     output_size = config.conv_dim
     batch_size = config.batch_size # int(in_layer.get_shape()[0])
-    input_size = config.features_dim #int(in_layer.get_shape()[2])
+    input_size = max(config.feature_dims.values()) #int(in_layer.get_shape()[2])
     moved = [0] * conv_window
     for i in range(conv_window):
         moved[i] = tf.pad(in_layer, [[0, 0], [i, 0], [0, 0]])
@@ -106,7 +113,7 @@ def convo_layer(in_layer, config, params, reuse=False, name='Convo'):
     conv_window = config.conv_window
     output_size = config.conv_dim
     batch_size = config.batch_size # int(in_layer.get_shape()[0])
-    input_size = config.features_dim #int(in_layer.get_shape()[2])
+    input_size = max(config.feature_dims.values()) #int(in_layer.get_shape()[2])
     if reuse:
         tf.get_variable_scope().reuse_variables()
         W_conv = params.W_conv

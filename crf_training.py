@@ -14,8 +14,11 @@ features = []
 
 def main():
     # load the data
+    #train_data, dev_data = read_data(train_file, features, config, 10000)
+    #test_data = read_data(dev_file, features, config)
     train_data = read_data(train_file, features, config)
     dev_data = read_data(dev_file, features, config)
+    #config.make_mappings(train_data + dev_data + test_data)
     config.make_mappings(train_data + dev_data)
     # initialize the parameters
     if config.init_words:
@@ -33,6 +36,8 @@ def main():
     # (accuracies, preds) = train_model(train_data, dev_data, crf, config, params_crf, 'CRF')
 
     best_f1 = 0.0
+    best_train_f1 = 0.0
+    best_test_f1 = 0.0
     patience = float(config.num_epochs)
     improvement_th = config.improvement_threshold
     patience_increase = config.patience_increase
@@ -48,14 +53,18 @@ def main():
         dev_acc = crf.validate_accuracy(dev_data_ready, config)
         print 'train_acc', train_acc, 'dev_acc', dev_acc
         print 'tagging', i, '\t', str(datetime.now())
-        #preds = tag_dataset(train_data, config, params_crf, 'CRF', crf)
-        #sentences = preds_to_sentences(preds, config)
-        #print 'train epoch', i, '\t', str(datetime.now())
-        #evaluate(sentences, 0.5)
+        preds = tag_dataset(train_data, config, params_crf, 'CRF', crf)
+        sentences = preds_to_sentences(preds, config)
+        print 'train epoch', i, '\t', str(datetime.now())
+        train_f1 = evaluate(sentences, 0.5)
         preds = tag_dataset(dev_data, config, params_crf, 'CRF', crf)
         sentences = preds_to_sentences(preds, config)
         print 'dev epoch', i, '\t', str(datetime.now())
         f1 = evaluate(sentences, 0.5)
+        #preds = tag_dataset(test_data, config, params_crf, 'CRF', crf)
+        #sentences = preds_to_sentences(preds, config)
+        #print 'test epoch', i, '\t', str(datetime.now())
+        #test_f1 = evaluate(sentences, 0.5)
         if f1 > best_f1:
             print 'found new best!'
             old_p = patience
@@ -69,7 +78,11 @@ def main():
                     patience = patience + 2
                     print 'increasing patience from', old_p, 'to', patience
             best_f1 = f1
-        print 'best F1 is:', best_f1
+            best_train_f1 = train_f1
+            #best_test_f1 = test_f1
+        print 'best dev F1 is:', best_f1
+        print ' with train F1:', best_train_f1
+        print '   and test F1:', best_test_f1
         if patience <= i+1:
             print 'out of patience'
             break

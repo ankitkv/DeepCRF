@@ -28,7 +28,7 @@ class Config:
                  nn_obj_weight=-1, dropout_keep_prob=0.5,
                  optimizer='adam', criterion='likelihood',
                  gradient_clip=1e0, param_clip=1e2,
-                 features_dim=200, init_words=False,
+                 feature_dims={}, init_words=False,
                  input_features=[], combine='sum',
                  use_convo=True, bi_convo=False, conv_window=5, conv_dim=200,
                  pot_size=1,
@@ -47,7 +47,7 @@ class Config:
         self.gradient_clip = gradient_clip
         self.param_clip = param_clip
         # input layer
-        self.features_dim = features_dim
+        self.feature_dims = feature_dims
         self.init_words = init_words
         self.input_features = input_features
         self.combine = combine
@@ -215,7 +215,7 @@ def aggregate_labels(sentence, config):
                                          for j in range(config.pred_window)])
 
 
-def read_data(file_name, features, config):
+def read_data(file_name, features, config, splitat=0):
     sentences = []
     sentence = []
     f = open(file_name)
@@ -233,7 +233,10 @@ def read_data(file_name, features, config):
         sentences += [sentence[:]]
     f.close()
     foo = [aggregate_labels(sentence, config) for sentence in sentences]
-    return sentences
+    if not splitat:
+        return sentences
+    else:
+        return (sentences[:splitat], sentences[splitat:])
 
 
 def show(sentence):
