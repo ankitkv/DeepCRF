@@ -113,13 +113,15 @@ class Batch:
         self.tags_one_hot = []
         # tag_windows: '<P>_B_O' -> [0, 1, 3]
         self.tag_windows = []
-        # tag_windows_lin: '<P>_B_O' -> num_values * token_id + 0 * config.n_tags **2 + 1 * config.n_tags + 3
+        # tag_windows_lin: '<P>_B_O' -> num_values * token_id + 0 *
+        #                           config.n_tags **2 + 1 * config.n_tags + 3
         self.tag_windows_lin = []
         # tag_windows_one_hot: '<P>_B_O' -> [0, ..., 0, 1, 0, ..., 0]
         self.tag_windows_one_hot = []
         # tag_neighbours: '<P>_B_O' -> [0, 3]
         self.tag_neighbours = []
-        # tag_neighbours_linearized: '<P>_B_O' -> num_values * token_id + 0 * config.n_tags + 3
+        # tag_neighbours_linearized: '<P>_B_O' -> num_values * token_id + 0 *
+        #                                                   config.n_tags + 3
         self.tag_neighbours_lin = []
         # mask: <P> -> 0, everything else -> 1
     def read(self, data, start, config, fill=False):
@@ -137,7 +139,8 @@ class Batch:
                          for word in sentence] for sentence in batch_features]
         self.tags = [[label[1] for label in sentence]
                      for sentence in batch_labels]
-        self.tags_one_hot = [[[int(x == label[1] and x > 0)  # TODO: count padding tokens?
+        # TODO: count padding tokens?
+        self.tags_one_hot = [[[int(x == label[1] and x > 0)
                                for x in range(config.n_tags)]
                               for label in sentence]
                              for sentence in batch_labels]
@@ -159,9 +162,11 @@ class Batch:
                 self.tags_one_hot[i] = [[0] * config.n_tags] * pre_len + \
                                        self.tags_one_hot[i] + \
                                        [[0] * config.n_tags] * post_len
-                self.tag_windows_one_hot[i] = [[0] * config.n_outcomes] * pre_len + \
+                self.tag_windows_one_hot[i] = [[0] * config.n_outcomes] * \
+                                              pre_len + \
                                               self.tag_windows_one_hot[i] + \
-                                              [[0] * config.n_outcomes] * post_len
+                                              [[0] * config.n_outcomes] * \
+                                              post_len
         mid = config.pot_size - 1
         padded_tags = [[0] * mid + sentence + [0] * mid
                        for sentence in self.tags]
@@ -170,8 +175,8 @@ class Batch:
                             for sent in padded_tags
                             for i in range(mid, len(sent) - mid)]
         n_indices = config.n_tags ** (config.pot_size + 1)
-        self.tag_windows_lin = [sum([t * (config.n_tags ** (config.pot_size - i))
-                                      for i, t in enumerate(window)]) + i * n_indices
+        self.tag_windows_lin = [sum([t*(config.n_tags ** (config.pot_size - i))
+                                for i, t in enumerate(window)]) + i * n_indices
                                 for i, window in enumerate(self.tag_windows)]
         # get linearized potential indices
         self.tag_neighbours = [[sent[i + j]
@@ -180,9 +185,9 @@ class Batch:
                                for i in range(mid, len(sent) - mid)]
         max_pow = config.pot_size
         n_indices = config.n_tags ** max_pow
-        self.tag_neighbours_lin = [sum([idx * (config.n_tags) ** (max_pow - j - 1)
-                                        for j, idx in enumerate(token)]) + i * n_indices
-                                   for i, token in enumerate(self.tag_neighbours)]
+        self.tag_neighbours_lin = [sum([idx*(config.n_tags) ** (max_pow - j-1)
+                             for j, idx in enumerate(token)]) + i * n_indices
+                            for i, token in enumerate(self.tag_neighbours)]
         # make mask:
         self.mask = [[int(tag > 0) for tag in sent] for sent in self.tags]
 
@@ -311,14 +316,17 @@ def tag_dataset(pre_data, config, params, mod_type, model):
             preds_layer_output = sequ_nn_tmp.preds_layer.eval(feed_dict=f_dict)
         elif mod_type == 'CRF':
             f_dict = make_feed_crf(model, batch, 1.0)
-            preds_layer_output = tf.argmax(model.map_tagging, 2).eval(feed_dict=f_dict)
+            preds_layer_output = \
+                tf.argmax(model.map_tagging, 2).eval(feed_dict=f_dict)
         tmp_preds = [[(batch.tags[i][j], token_preds)
-                      for j, token_preds in enumerate(sentence) if 1 in batch.tag_windows_one_hot[i][j]]
+                      for j, token_preds in enumerate(sentence)
+                            if 1 in batch.tag_windows_one_hot[i][j]]
                      for i, sentence in enumerate(list(preds_layer_output))]
         res += tmp_preds
     # re-order data
     res = res[:len(pre_data)]
-    res = [dat for i, dat in sorted(zip(mixed_indices, res), key=lambda x:x[0])]
+    res = [dat
+           for i, dat in sorted(zip(mixed_indices, res), key=lambda x:x[0])]
     return res
 
 
@@ -489,6 +497,6 @@ def evaluate(sentences, threshold):
         f1 = 0
     else:
         f1 =  2 * (prec * recall) / (prec + recall)
-    print 'TH:', threshold, '\t', 'P:', prec, '\t', 'R:', recall, '\t', 'F:', f1
+    print 'TH:',threshold, '\t', 'P:',prec, '\t', 'R:',recall, '\t', 'F:',f1
     return f1
 

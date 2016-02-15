@@ -12,14 +12,17 @@ from utils import *
 @tf.RegisterGradient("ChainCRF")
 def _chain_crf_grad(op, grad_likelihood, grad_marginals):
     my_grads = grad_likelihood * op.inputs[4]
-    return [my_grads, None, None, None, None]  # List of one Tensor, since we have one input
+    # List of one Tensor, since we have one input
+    return [my_grads, None, None, None, None]
 
 @tf.RegisterGradient("ChainSumProduct")
-def _chain_sum_product_grad(op, grad_forward_sp, grad_backward_sp, grad_gradients):
+def _chain_sum_product_grad(op, grad_forward_sp, grad_backward_sp,
+        grad_gradients):
     return [None, None]
 
 @tf.RegisterGradient("ChainMaxSum")
-def _chain_sum_product_grad(op, grad_forward_ms, grad_backward_ms, grad_tagging):
+def _chain_sum_product_grad(op, grad_forward_ms, grad_backward_ms,
+        grad_tagging):
     return [None, None]
 
 
@@ -99,7 +102,7 @@ def distance_dependent(in_layer, config, params, reuse=False):
     for i in range(conv_window):
         moved[i] = tf.pad(in_layer, [[0, 0], [i, 0], [0, 0]])
         moved[i] = tf.slice(moved[i], [0, 0, 0], [-1, -1, -1])
-    
+
 
 
 def convo_layer(in_layer, config, params, reuse=False, name='Convo'):
@@ -129,7 +132,8 @@ def convo_layer(in_layer, config, params, reuse=False, name='Convo'):
 
 
 # takes features and outputs potentials
-def potentials_layer(in_layer, mask, config, params, reuse=False, name='Potentials'):
+def potentials_layer(in_layer, mask, config, params, reuse=False,
+        name='Potentials'):
     num_steps = int(in_layer.get_shape()[1])
     input_size = int(in_layer.get_shape()[2])
     pot_shape = [config.n_tags] * config.pot_size
@@ -217,7 +221,8 @@ def unary_log_pots(in_layer, mask, config, params, reuse=False, name='Unary'):
     return (un_pots_layer, W_pot_un, b_pot_un)
 
 
-def log_pots(un_pots_layer, bin_pots_layer, config, params, name='LogPotentials'):
+def log_pots(un_pots_layer, bin_pots_layer, config, params,
+        name='LogPotentials'):
     expanded_unaries = tf.expand_dims(un_pots_layer, 2)
     expanded_unaries = tf.tile(expanded_unaries, [1, 1, config.n_tags, 1])
     pots_layer = expanded_unaries + bin_pots_layer
@@ -245,7 +250,7 @@ def predict_layer(in_layer, config, params, reuse=False, name='Predict'):
         b_pred = tf.clip_by_norm(b_pred, config.param_clip)
     flat_input = tf.reshape(in_layer, [-1, input_size])
     pre_scores = tf.nn.softmax(tf.matmul(flat_input, W_pred) + b_pred)
-    preds_layer = tf.reshape(pre_scores, [batch_size, -1, config.n_tag_windows])
+    preds_layer = tf.reshape(pre_scores,[batch_size, -1, config.n_tag_windows])
     return (preds_layer, W_pred, b_pred)
 
 
@@ -279,7 +284,8 @@ def pseudo_likelihood(potentials, pot_indices, targets, config):
             reshaped[i] =  tf.expand_dims(reshaped[i], -1)
             multiples[-1 - j] = config.n_tags
         reshaped[i] = tf.tile(reshaped[i], multiples[:])
-        paddings = [[0, 0], [i, config.pot_size - i - 1]] + [[0, 0]] * (2 * config.pot_size - 1)
+        paddings = [[0, 0], [i, config.pot_size - i - 1]] + [[0, 0]] * \
+                                (2 * config.pot_size - 1)
         reshaped[i] = tf.reshape(tf.pad(reshaped[i], paddings),
                                  [config.batch_size,
                                   config.num_steps + config.pot_size - 1,
@@ -290,7 +296,7 @@ def pseudo_likelihood(potentials, pot_indices, targets, config):
     end_slice = [-1, config.num_steps, -1]
     pre_cond = tf.slice(pre_cond, begin_slice, end_slice)
     pre_cond = tf.reshape(pre_cond, [config.batch_size, config.num_steps] +
-                                          [config.n_tags] * (2 * config.pot_size - 1))
+                                   [config.n_tags] * (2 * config.pot_size - 1))
     # print pre_cond.get_shape()
     # move the current tag to the last dimension
     perm = range(len(pre_cond.get_shape()))
@@ -302,9 +308,10 @@ def pseudo_likelihood(potentials, pot_indices, targets, config):
     flat_pots = tf.reshape(perm_potentials, [-1, config.n_tags])
     flat_cond = tf.gather(flat_pots, pot_indices)
     pre_shaped_cond = tf.nn.softmax(flat_cond)
-    conditional = tf.reshape(pre_shaped_cond, [config.batch_size, config.num_steps, -1])
+    conditional = tf.reshape(pre_shaped_cond, [config.batch_size,
+        config.num_steps, -1])
     # compute pseudo-log-likelihood of sequence
-    p_ll = tf.reduce_sum(targets * tf.log(conditional + 1e-25)) # avoid underflow
+    p_ll = tf.reduce_sum(targets * tf.log(conditional+1e-25)) # avoid underflow
     return (conditional, p_ll)
 
 
@@ -315,7 +322,7 @@ def log_score(potentials, window_indices, mask, config):
     pots_shape = map(int, potentials.get_shape()[2:])
     flat_pots = tf.reshape(potentials, [-1])
     flat_scores = tf.gather(flat_pots,
-                            window_indices / (config.n_tags ** (config.pot_size - 1)))
+                     window_indices / (config.n_tags ** (config.pot_size - 1)))
     scores = tf.reshape(flat_scores, [batch_size, num_steps])
     scores = tf.mul(scores, mask)
     return tf.reduce_sum(scores)
@@ -362,9 +369,9 @@ class CRF:
             # convolution
             if config.use_convo:
                 if config.bi_convo:
-                    (out_layer, W_pre_conv, b_pre_conv) = convo_layer(out_layer,
-                                                                      config,
-                                                                      params)
+                    (out_layer,W_pre_conv,b_pre_conv) = convo_layer(out_layer,
+                                                                    config,
+                                                                    params)
                     out_layer = tf.nn.relu(out_layer)
                 (out_layer, W_conv, b_conv) = convo_layer(out_layer, config,
                                                           params, reuse=reuse)
@@ -379,8 +386,8 @@ class CRF:
             self.out_layer = out_layer
             ### SEQU-NN
             if config.nn_obj_weight > 0:
-                (preds_layer, W_pred, b_pred) = predict_layer(out_layer, config,
-                                                              params, reuse=reuse)
+                (preds_layer, W_pred, b_pred) = predict_layer(out_layer,
+                                                   config, params, reuse=reuse)
                 params.W_pred = W_pred
                 params.b_pred = b_pred
                 self.preds_layer = preds_layer
@@ -393,8 +400,8 @@ class CRF:
                                                        params, reuse=reuse)
             params.W_pot_bin = W_p_b
             params.b_pot_bin = b_p_b
-            (un_pots, W_p_u, b_p_u) = unary_log_pots(out_layer, self.mask, config,
-                                                     params, reuse=reuse)
+            (un_pots, W_p_u, b_p_u) = unary_log_pots(out_layer, self.mask,
+                                                   config, params, reuse=reuse)
             params.W_pot_un = W_p_u
             params.b_pot_un = b_p_u
             pots_layer = log_pots(un_pots, bin_pots, config, params)
@@ -411,7 +418,8 @@ class CRF:
             dynamic = [tf.user_ops.chain_sum_product(pots, tags)
                        for pots, tags in args_list]
             pre_crf_list = [(pots, tags, f_sp, b_sp, grads)
-                            for ((pots, tags), (f_sp, b_sp, grads)) in zip(args_list, dynamic)]
+                            for ((pots, tags), (f_sp, b_sp, grads))
+                            in zip(args_list, dynamic)]
             crf_list = [tf.user_ops.chain_crf(pots, tags, f_sp, b_sp, grads)
                         for (pots, tags, f_sp, b_sp, grads) in pre_crf_list]
             # log-likelihood, compute
@@ -426,8 +434,8 @@ class CRF:
             correct_pred = tf.equal(tf.argmax(map_tagging, 2),
                                     tf.argmax(self.targets, 2))
             correct_pred = tf.cast(correct_pred, "float")
-            accuracy = tf.reduce_sum(correct_pred * tf.reduce_sum(self.targets, 2)) /\
-                       tf.reduce_sum(self.targets)
+            accuracy = tf.reduce_sum(correct_pred * \
+                tf.reduce_sum(self.targets, 2)) / tf.reduce_sum(self.targets)
             self.map_tagging = map_tagging
             self.accuracy = accuracy
             ### OPTIMIZATION
@@ -441,26 +449,28 @@ class CRF:
             optimizers = {}
             for k in self.criteria:
                 if config.optimizer == 'adagrad':
-                    optimizers[k] = tf.train.AdagradOptimizer(config.learning_rate,
-                                                              name='adagrad_' + k)
+                    optimizers[k] = tf.train.AdagradOptimizer(
+                                     config.learning_rate, name='adagrad_' + k)
                 elif config.optimizer == 'adam':
-                    optimizers[k] = tf.train.AdamOptimizer(config.learning_rate,
-                                                              name='adam_' + k)
+                    optimizers[k] = tf.train.AdamOptimizer(
+                                        config.learning_rate, name='adam_' + k)
                 else:
-                    optimizers[k] = tf.train.GradientDescentOptimizer(config.learning_rate,
-                                                              name='sgd_' + k)
+                    optimizers[k] = tf.train.GradientDescentOptimizer(
+                                         config.learning_rate, name='sgd_' + k)
             grads_and_vars = {}
             # gradient clipping
             for k, crit in self.criteria.items():
                 uncapped_g_v = optimizers[k].compute_gradients(crit,
-                                                               tf.trainable_variables())
-                grads_and_vars[k] = [(tf.clip_by_norm(g, config.gradient_clip), v) \
-                                     if g and config.gradient_clip > 0 else (g, v)
-                                     for g, v in uncapped_g_v]
+                                                      tf.trainable_variables())
+                grads_and_vars[k] = [(tf.clip_by_norm(g, config.gradient_clip),
+                                                      v) \
+                                  if g and config.gradient_clip > 0 else (g, v)
+                                  for g, v in uncapped_g_v]
             self.train_steps = {}
             for k, g_v in grads_and_vars.items():
-                self.train_steps[k] = optimizers[k].apply_gradients(g_v, global_step=self.global_step)
-    
+                self.train_steps[k] = optimizers[k].apply_gradients(g_v,
+                    global_step=self.global_step)
+
     def train_epoch(self, data, config, params):
         batch_size = config.batch_size
         criterion = self.criteria[config.criterion]
@@ -479,7 +489,8 @@ class CRF:
             total_crit += crit
             if config.verbose and i % 50 == 0:
                 train_accuracy = self.accuracy.eval(feed_dict=f_dict)
-                print("step %d of %d, training accuracy %f, criterion %f, ll %f" %
+                print("step %d of %d, training accuracy %f, criterion %f,"\
+                      " ll %f" %
                       (i, n_batches, train_accuracy, crit,
                        self.log_likelihood.eval(feed_dict=f_dict)))
         print 'total crit', total_crit / n_batches
@@ -500,7 +511,8 @@ class CRF:
             total_ll += ll
             total += 1
             if i % 100 == 0 and config.verbose:
-                print("%d of %d: \t map acc: %f \t ll:  %f" % (i, len(data) / batch_size,
-                                                total_accuracy / total, total_ll / total))
+                print("%d of %d: \t map acc: %f \t ll:  %f" % \
+                    (i, len(data) / batch_size,
+                     total_accuracy / total, total_ll / total))
         return (total_accuracy / total)
 

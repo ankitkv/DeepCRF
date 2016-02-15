@@ -1,6 +1,7 @@
 from pprint import pprint
 import os
 import argparse
+import sys
 from datetime import datetime
 
 from crf_defs import *
@@ -30,7 +31,8 @@ def main():
     crf = CRF(config)
     crf.make(config, params_crf)
     sess.run(tf.initialize_all_variables())
-    # (accuracies, preds) = train_model(train_data, dev_data, crf, config, params_crf, 'CRF')
+    # (accuracies, preds) = train_model(train_data, dev_data, crf, config,
+    #                                                       params_crf, 'CRF')
 
     best_f1 = 0.0
     best_train_f1 = 0.0
@@ -86,6 +88,8 @@ def main():
         else:
             print 'patience:', patience
         i += 1
+        sys.stdout.flush()
+        sys.stderr.flush()
 
 
 if __name__ == "__main__":
