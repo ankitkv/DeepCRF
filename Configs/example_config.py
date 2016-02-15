@@ -18,12 +18,12 @@ features = ['word', 'lemma', 'pos', 'normal', 'word_length',
 
 tag_list = ['<P>', 'B', 'Bp', 'I', 'Ip', 'In', 'ID', 'O', 'OD']
 
-input_features = ['word', 'lemma', 'pos', 'normal', 'word_length',
-                  'prefix', 'suffix', 'capitalized', 'word_pos',
-                  'sentence_pos', 'sentence_length', 'med_prefix',
-                  'umls_match_tag_full', 'umls_match_tag_prefix',
-                  'umls_match_tag_acro']
-
+input_features = {'word': 200, 'lemma': 200, 'pos': 4, 'normal': 200,
+                  'word_length': 1, 'prefix': 100, 'suffix': 100,
+                  'capitalized': 1, 'word_pos': 4, 'sentence_pos': 4,
+                  'sentence_length': 1, 'med_prefix': 100,
+                  'umls_match_tag_full': 3, 'umls_match_tag_prefix': 3,
+                  'umls_match_tag_acro': 3}
 
 config = Config(input_features=input_features, tag_list=tag_list)
 
@@ -34,7 +34,7 @@ config.learning_rate = 5e-4
 config.gradient_clip = 5
 config.param_clip = 50
 
-config.num_epochs = 8
+config.num_epochs = 9
 config.patience_increase = 1.8
 
 config.optimizer = 'adam'

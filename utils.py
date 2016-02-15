@@ -27,9 +27,8 @@ class Config:
     def __init__(self, batch_size=20, learning_rate=1e-2,
                  nn_obj_weight=-1, dropout_keep_prob=0.5,
                  optimizer='adam', criterion='likelihood',
-                 gradient_clip=1e0, param_clip=1e2,
-                 features_dim=200, init_words=False,
-                 input_features=[], combine='sum',
+                 gradient_clip=1e0, param_clip=1e2, init_words=False,
+                 input_features={},
                  use_convo=True, bi_convo=False, conv_window=5, conv_dim=200,
                  pot_size=1,
                  pred_window=1, tag_list=[],
@@ -47,10 +46,9 @@ class Config:
         self.gradient_clip = gradient_clip
         self.param_clip = param_clip
         # input layer
-        self.features_dim = features_dim
         self.init_words = init_words
         self.input_features = input_features
-        self.combine = combine
+        self.features_dim = sum(input_features.values())
         # convolutional layer
         self.use_convo = use_convo
         self.bi_convo = bi_convo

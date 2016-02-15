@@ -62,7 +62,7 @@ def feature_layer(in_layer, config, params, reuse=False):
     else:
         param_dic = params.init_dic
         param_vars = {}
-        for feat in in_features:
+        for feat, dim in in_features.items():
             if feat in param_dic:
                 embeddings = \
                       tf.Variable(tf.convert_to_tensor(param_dic[feat],
@@ -84,11 +84,11 @@ def feature_layer(in_layer, config, params, reuse=False):
     params = [param_vars[feat] for feat in in_features]
     input_embeddings = tf.nn.embedding_lookup(params, input_ids,
                                               name='lookup')
-    # add and return
-    if config.combine == 'sum':
-        embedding_layer = tf.reduce_sum(input_embeddings, 2)
-    else:
-        embedding_layer = tf.reduce_max(input_embeddings, 2)
+    # add and return TODO: remove
+    #if config.combine == 'sum':
+    #    embedding_layer = tf.reduce_sum(input_embeddings, 2)
+    #else:
+    #    embedding_layer = tf.reduce_max(input_embeddings, 2)
     return (embedding_layer, param_vars)
 
 
@@ -512,7 +512,7 @@ class CRF:
             total += 1
             if i % 100 == 0 and config.verbose:
                 print("%d of %d: \t map acc: %f \t ll:  %f" % \
-                    (i, len(data) / batch_size,
-                     total_accuracy / total, total_ll / total))
+                      (i, len(data) / batch_size,
+                      total_accuracy / total, total_ll / total))
         return (total_accuracy / total)
 
