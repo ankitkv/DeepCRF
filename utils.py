@@ -150,9 +150,9 @@ class Batch:
                 current_len = len(batch_data[i])
                 pre_len = (max_len - current_len) / 2
                 post_len = max_len - pre_len - current_len
-                self.features[i] = [range(num_features)] * pre_len + \
+                self.features[i] = [[0] * num_features] * pre_len + \
                                    self.features[i] + \
-                                   [range(num_features)] * post_len
+                                   [[0] * num_features] * post_len
                 self.tags[i] = [0] * pre_len + self.tags[i] + [0] * post_len
                 self.tags_one_hot[i] = [[0] * config.n_tags] * pre_len + \
                                        self.tags_one_hot[i] + \

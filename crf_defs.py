@@ -379,7 +379,8 @@ class CRF:
                     print('convolution layer done')
                 out_layer = tf.nn.relu(out_layer)
 
-            out_layer = tf.nn.dropout(out_layer, self.keep_prob)
+            # TODO: does this really help? check again with concat features
+            #out_layer = tf.nn.dropout(out_layer, self.keep_prob)
 
             self.out_layer = out_layer
             ### SEQU-NN
