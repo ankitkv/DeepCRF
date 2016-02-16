@@ -62,8 +62,9 @@ def feature_layer(in_layer, config, params, reuse=False):
     else:
         param_dic = params.init_dic
         param_vars = {}
-        for feat, dim in in_features.items():
-            if feat in param_dic:
+        embeddings = []
+        for i, (feat, dim) in enumerate(in_features.items()):
+            if feat in param_dic: #TODO: needs to be updated
                 embeddings = \
                       tf.Variable(tf.convert_to_tensor(param_dic[feat],
                                                        dtype=tf.float32),
@@ -77,18 +78,15 @@ def feature_layer(in_layer, config, params, reuse=False):
                                                     config.param_clip)
                 param_vars[feat] = tf.matmul(embeddings, clipped_transform)
             else:
-                shape = [len(feature_mappings[feat]['reverse']), features_dim]
+                shape = [len(feature_mappings[feat]['reverse']), dim]
                 initial = tf.truncated_normal(shape, stddev=0.1)
-                param_vars[feat] = tf.Variable(initial,
-                                               name=feat + '_embedding')
-    params = [param_vars[feat] for feat in in_features]
-    input_embeddings = tf.nn.embedding_lookup(params, input_ids,
-                                              name='lookup')
-    # add and return TODO: remove
-    #if config.combine == 'sum':
-    #    embedding_layer = tf.reduce_sum(input_embeddings, 2)
-    #else:
-    #    embedding_layer = tf.reduce_max(input_embeddings, 2)
+                emb_matrix = tf.Variable(initial, name=feat + '_embedding')
+                param_vars[feat] = emb_matrix
+                ids = tf.slice(input_ids, [0, 0, i], [-1, -1, 1])
+                embeddings.append(tf.squeeze(tf.nn.embedding_lookup(emb_matrix,
+                                                   ids, name=feat + '_lookup'),
+                                                  [2], name=feat + '_squeeze'))
+    embedding_layer = tf.concat(2, embeddings)
     return (embedding_layer, param_vars)
 
 

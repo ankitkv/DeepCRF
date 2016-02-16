@@ -125,16 +125,13 @@ class Batch:
     def read(self, data, start, config, fill=False):
         num_features = len(config.input_features)
         batch_data = data[start:start + config.batch_size]
-        batch_features = [[[config.feature_maps[feat]['lookup'][token[feat]]
+        self.features = [[[config.feature_maps[feat]['lookup'][token[feat]]
                             for feat in config.input_features]
                            for token in sentence]
                           for sentence in batch_data]
         batch_labels = [[config.label_dict[token['label']]
                          for token in sentence]
                         for sentence in batch_data]
-        # multiply feature indices for use in tf.nn.embedding_lookup
-        self.features = [[[num_features * ft + i for i, ft in enumerate(word)]
-                         for word in sentence] for sentence in batch_features]
         self.tags = [[label[1] for label in sentence]
                      for sentence in batch_labels]
         # TODO: count padding tokens?
