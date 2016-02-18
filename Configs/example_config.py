@@ -39,3 +39,5 @@ config.patience_increase = 1.8
 
 config.optimizer = 'adam'
 config.batch_size = 50
+
+config.visualize = 'wrong' # all, wrong, none

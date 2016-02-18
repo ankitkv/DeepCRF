@@ -33,7 +33,8 @@ class Config:
                  pot_size=1,
                  pred_window=1, tag_list=[],
                  verbose=False, num_epochs=10, num_predict=5,
-                 improvement_threshold=0.995, patience_increase=2.0):
+                 improvement_threshold=0.995, patience_increase=2.0,
+                 visualize='wrong'):
         # optimization parameters
         self.batch_size = batch_size
         self.learning_rate = learning_rate
@@ -78,6 +79,7 @@ class Config:
         self.num_predict = num_predict
         self.improvement_threshold = improvement_threshold
         self.patience_increase = patience_increase
+        self.visualize = visualize
 
     def make_mappings(self, data):
         self.feature_maps = dict([(feat, {'lookup': {'_unk_': 0},
@@ -320,8 +322,8 @@ def tag_dataset(pre_data, config, params, mod_type, model):
         res += tmp_preds
     # re-order data
     res = res[:len(pre_data)]
-    res = [dat
-           for i, dat in sorted(zip(mixed_indices, res), key=lambda x:x[0])]
+    res = [(dat, full) for i, dat, full in sorted(zip(mixed_indices, res, data),
+           key=lambda x:x[0])]
     return res
 
 
@@ -353,13 +355,23 @@ def train_model(train_data, dev_data, model, config, params, mod_type):
         dev_acc = model.validate_accuracy(dev_data_ready, config)
         accuracies += [(train_acc, dev_acc)]
         if i % config.num_predict == config.num_predict - 1:
-            preds[i+1] = tag_dataset(dev_data, config, params, mod_type, model)
+            pred = tag_dataset(dev_data, config, params, mod_type, model)
+            preds[i+1] = pred[0]
     return (accuracies, preds)
 
 
 ###############################################
 # NN evaluation functions                     #
 ###############################################
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+
+
 def find_gold(sentence):
     gold = []
     current_gold = []
@@ -431,7 +443,7 @@ def tags_to_mentions(tagging):
                 if len(added) <= 1:
                     added += [[]]
                 for a in added:
-                        rebuild += [sorted(a[:] + core[:])]
+                    rebuild += [sorted(a[:] + core[:])]
                 core = []
                 added = []
             added += [[i]]
@@ -445,7 +457,7 @@ def tags_to_mentions(tagging):
             if len(added) <= 1:
                 added += [[]]
             for a in added:
-                    rebuild += [sorted(a[:] + core[:])]
+                rebuild += [sorted(a[:] + core[:])]
             core = []
             added = []
         if tag in ['B', 'I', 'ID']:
@@ -454,34 +466,55 @@ def tags_to_mentions(tagging):
         if len(added) <= 1:
             added += [[]]
         for a in added:
-                rebuild += [sorted(a[:] + core[:])]
+            rebuild += [sorted(a[:] + core[:])]
     return sorted([tuple(x) for x in rebuild])
 
 
 def preds_to_sentences(model_preds, config):
     res = []
-    for pred in model_preds:
+    for (pred, full) in model_preds:
         found = tags_to_mentions([config.tag_list[x[1]] for x in pred])
         gold = tags_to_mentions([config.tag_list[x[0]] for x in pred])
-        res += [('', gold, tuple([(x, 1) for x in found]))]
+        res += [('', gold, tuple([(x, 1) for x in found]), full)]
     return res
 
 
-def evaluate(sentences, threshold):
+def evaluate(sentences, threshold, config):
     TP = 0
     FP = 0
     FN = 0
     for sentence in sentences:
-        true_mentions = sentence[1]
+        true_mentions = set(sentence[1])
         tp = 0
+        fp = 0
         for pred in sentence[2]:
             if pred[1] >= threshold:
                 if pred[0] in true_mentions:
                     tp += 1
                 else:
-                    FP += 1
+                    fp += 1
+        FP += fp
         TP += tp
-        FN += len(true_mentions) - tp
+        fn = len(true_mentions) - tp
+        FN += fn
+        if config.visualize != 'none' and \
+                (config.visualize == 'all' or fp > 0 or fn > 0):
+            preds = set(p for pred, th in sentence[2] for p in pred
+                        if th >= threshold)
+            true_mentions = set(m for mention in true_mentions
+                                for m in mention)
+            for i, word in enumerate(sentence[3]):
+                if i in true_mentions:
+                    if i in preds:
+                        print bcolors.OKGREEN + word['word'] + bcolors.ENDC,
+                    else:
+                        print bcolors.WARNING + word['word'] + bcolors.ENDC,
+                else:
+                    if i in preds:
+                        print bcolors.FAIL + word['word'] + bcolors.ENDC,
+                    else:
+                        print word['word'],
+            print
     if (TP + FP) == 0:
         prec = 0
         recall = 0
