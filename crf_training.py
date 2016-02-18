@@ -55,15 +55,15 @@ def main():
         preds = tag_dataset(train_data, config, params_crf, 'CRF', crf)
         sentences = preds_to_sentences(preds, config)
         print 'train epoch', i, '\t', str(datetime.now())
-        train_f1 = evaluate(sentences, 0.5, config)
+        train_f1 = evaluate(sentences, 0.5, config.visualize_train)
         preds = tag_dataset(dev_data, config, params_crf, 'CRF', crf)
         sentences = preds_to_sentences(preds, config)
         print 'dev epoch', i, '\t', str(datetime.now())
-        f1 = evaluate(sentences, 0.5, config)
+        f1 = evaluate(sentences, 0.5, config.visualize_dev)
         preds = tag_dataset(test_data, config, params_crf, 'CRF', crf)
         sentences = preds_to_sentences(preds, config)
         print 'test epoch', i, '\t', str(datetime.now())
-        test_f1 = evaluate(sentences, 0.5, config)
+        test_f1 = evaluate(sentences, 0.5, config.visualize_test)
         if f1 > best_f1:
             print 'found new best!'
             old_p = patience

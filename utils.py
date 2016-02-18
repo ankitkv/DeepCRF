@@ -34,7 +34,8 @@ class Config:
                  pred_window=1, tag_list=[],
                  verbose=False, num_epochs=10, num_predict=5,
                  improvement_threshold=0.995, patience_increase=2.0,
-                 visualize='wrong'):
+                 visualize_train='none', visualize_test='wrong',
+                 visualize_dev='wrong'):
         # optimization parameters
         self.batch_size = batch_size
         self.learning_rate = learning_rate
@@ -79,7 +80,9 @@ class Config:
         self.num_predict = num_predict
         self.improvement_threshold = improvement_threshold
         self.patience_increase = patience_increase
-        self.visualize = visualize
+        self.visualize_train = visualize_train
+        self.visualize_test = visualize_test
+        self.visualize_dev = visualize_dev
 
     def make_mappings(self, data):
         self.feature_maps = dict([(feat, {'lookup': {'_unk_': 0},
@@ -479,7 +482,7 @@ def preds_to_sentences(model_preds, config):
     return res
 
 
-def evaluate(sentences, threshold, config):
+def evaluate(sentences, threshold, visualize):
     TP = 0
     FP = 0
     FN = 0
@@ -497,8 +500,7 @@ def evaluate(sentences, threshold, config):
         TP += tp
         fn = len(true_mentions) - tp
         FN += fn
-        if config.visualize != 'none' and \
-                (config.visualize == 'all' or fp > 0 or fn > 0):
+        if visualize != 'none' and (visualize == 'all' or fp > 0 or fn > 0):
             preds = set(p for pred, th in sentence[2] for p in pred
                         if th >= threshold)
             true_mentions = set(m for mention in true_mentions
