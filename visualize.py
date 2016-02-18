@@ -54,13 +54,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Testing the models for \
                                      various parameter values')
     parser.add_argument("-file", "--visualization_file",
-                        help="visualization file")
+                        help="visualization file [default "+vis_file+"]")
     parser.add_argument("-train", "--train",
-                        help="one of all, wrong, none")
+                        help="one of 'all', 'wrong', 'none'")
     parser.add_argument("-test", "--test",
-                        help="one of all, wrong, none")
+                        help="one of 'all', 'wrong', 'none'")
     parser.add_argument("-dev", "--dev",
-                        help="one of all, wrong, none")
+                        help="one of 'all', 'wrong', 'none'")
     args = parser.parse_args()
     if args.visualization_file:
         vis_file = args.visualization_file
