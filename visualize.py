@@ -2,12 +2,7 @@ import argparse
 import cPickle as pickle
 import sys
 
-from utils import *
-
-config_file = 'Configs/my_config.py'
-config = None
-
-vis_file = ''
+vis_file = 'visual.pickle'
 
 
 class bcolors:
@@ -67,7 +62,6 @@ if __name__ == '__main__':
     parser.add_argument("-dev", "--dev",
                         help="one of all, wrong, none")
     args = parser.parse_args()
-    execfile(config_file)
     if args.visualization_file:
         vis_file = args.visualization_file
     visualization = read_visualization()
