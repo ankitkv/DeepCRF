@@ -3,6 +3,7 @@ import os
 import argparse
 import sys
 from datetime import datetime
+import cPickle as pickle
 
 from crf_defs import *
 
@@ -12,6 +13,18 @@ config = None
 train_file = ''
 dev_file = ''
 features = []
+
+
+def write_visualization(visual):
+    try:
+        with open(vis_file, 'wb') as f:
+            pickle.dump(visual, f, -1)
+            print 'Wrote visualization info to', vis_file
+    except IOError:
+        print >> sys.stderr, 'Could not write visualization to file', vis_file
+    except pickle.PicklingError:
+        print >> sys.stderr, 'Could not pickle visualization!'
+
 
 def main():
     # load the data
@@ -42,6 +55,7 @@ def main():
     patience_increase = config.patience_increase
     i = 0
     while True:
+        visualization = {}
         print
         train_data_ready = prepare_data(train_data, config)
         dev_data_ready = prepare_data(dev_data, config)
@@ -55,15 +69,18 @@ def main():
         preds = tag_dataset(train_data, config, params_crf, 'CRF', crf)
         sentences = preds_to_sentences(preds, config)
         print 'train epoch', i, '\t', str(datetime.now())
-        train_f1 = evaluate(sentences, 0.5, config.visualize_train)
+        train_f1, visual = evaluate(sentences, 0.5)
+        visualization['train'] = visual
         preds = tag_dataset(dev_data, config, params_crf, 'CRF', crf)
         sentences = preds_to_sentences(preds, config)
         print 'dev epoch', i, '\t', str(datetime.now())
-        f1 = evaluate(sentences, 0.5, config.visualize_dev)
+        f1, visual = evaluate(sentences, 0.5)
+        visualization['dev'] = visual
         preds = tag_dataset(test_data, config, params_crf, 'CRF', crf)
         sentences = preds_to_sentences(preds, config)
         print 'test epoch', i, '\t', str(datetime.now())
-        test_f1 = evaluate(sentences, 0.5, config.visualize_test)
+        test_f1, visual = evaluate(sentences, 0.5)
+        visualization['test'] = visual
         if f1 > best_f1:
             print 'found new best!'
             old_p = patience
@@ -79,6 +96,7 @@ def main():
             best_f1 = f1
             best_train_f1 = train_f1
             best_test_f1 = test_f1
+            write_visualization(visualization)
         print 'best dev F1 is:', best_f1
         print ' with train F1:', best_train_f1
         print '   and test F1:', best_test_f1

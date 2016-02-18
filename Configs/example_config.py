@@ -9,6 +9,8 @@ train_file = pjoin(data_dir, 'semeval_train/crfpp_text_batch_1.txt')
 dev_file = pjoin(data_dir, 'semeval_dev/crfpp_text_batch_1.txt')
 vecs_file = pjoin(git_dir, 'Data/crf_data_overlaps/semeval_vecs.dat')
 
+vis_file = pjoin(git_dir, 'visual.pickle')
+
 # feature names and tag list
 features = ['word', 'lemma', 'pos', 'normal', 'word_length',
             'prefix', 'suffix', 'all_caps', 'capitalized', 'word_pos',
@@ -39,8 +41,3 @@ config.patience_increase = 1.8
 
 config.optimizer = 'adam'
 config.batch_size = 50
-
-# all, wrong, none
-config.visualize_train = 'none'
-config.visualize_dev = 'wrong'
-config.visualize_test = 'wrong'

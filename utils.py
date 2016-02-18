@@ -366,15 +366,6 @@ def train_model(train_data, dev_data, model, config, params, mod_type):
 ###############################################
 # NN evaluation functions                     #
 ###############################################
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-
-
 def find_gold(sentence):
     gold = []
     current_gold = []
@@ -482,10 +473,11 @@ def preds_to_sentences(model_preds, config):
     return res
 
 
-def evaluate(sentences, threshold, visualize):
+def evaluate(sentences, threshold):
     TP = 0
     FP = 0
     FN = 0
+    visual = []
     for sentence in sentences:
         true_mentions = set(sentence[1])
         tp = 0
@@ -500,23 +492,27 @@ def evaluate(sentences, threshold, visualize):
         TP += tp
         fn = len(true_mentions) - tp
         FN += fn
-        if visualize != 'none' and (visualize == 'all' or fp > 0 or fn > 0):
-            preds = set(p for pred, th in sentence[2] for p in pred
-                        if th >= threshold)
-            true_mentions = set(m for mention in true_mentions
-                                for m in mention)
-            for i, word in enumerate(sentence[3]):
-                if i in true_mentions:
-                    if i in preds:
-                        print bcolors.OKGREEN + word['word'] + bcolors.ENDC,
-                    else:
-                        print bcolors.WARNING + word['word'] + bcolors.ENDC,
+        vis_sentence = []
+        preds = set(p for pred, th in sentence[2] for p in pred
+                    if th >= threshold)
+        true_mentions = set(m for mention in true_mentions
+                            for m in mention)
+        for i, word in enumerate(sentence[3]):
+            word = dict(word)
+            if i in true_mentions:
+                word['true_mention'] = True
+                if i in preds:
+                    word['pred'] = True
                 else:
-                    if i in preds:
-                        print bcolors.FAIL + word['word'] + bcolors.ENDC,
-                    else:
-                        print word['word'],
-            print
+                    word['pred'] = False
+            else:
+                word['true_mention'] = False
+                if i in preds:
+                    word['pred'] = True
+                else:
+                    word['pred'] = False
+            vis_sentence.append(word)
+        visual.append((fp, fn, vis_sentence))
     if (TP + FP) == 0:
         prec = 0
         recall = 0
@@ -528,5 +524,5 @@ def evaluate(sentences, threshold, visualize):
     else:
         f1 =  2 * (prec * recall) / (prec + recall)
     print 'TH:',threshold, '\t', 'P:',prec, '\t', 'R:',recall, '\t', 'F:',f1
-    return f1
+    return (f1, visual)
 
