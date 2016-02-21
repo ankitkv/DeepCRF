@@ -33,6 +33,7 @@ config = Config(input_features=input_features, tag_list=tag_list)
 
 config.conv_dim = [32,64]
 config.conv_window = [5,3]
+config.conv_dropout = [True, True]
 
 config.dropout_keep_prob = 0.5
 

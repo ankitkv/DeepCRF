@@ -375,7 +375,8 @@ class CRF:
                                                               params, i)
                     out_layer = tf.nn.relu(out_layer)
                     # XXX: does this really help?
-                    out_layer = tf.nn.dropout(out_layer, self.keep_prob)
+                    if config.conv_dropout[i]:
+                        out_layer = tf.nn.dropout(out_layer, self.keep_prob)
 
                 params.W_conv = W_conv
                 params.b_conv = b_conv

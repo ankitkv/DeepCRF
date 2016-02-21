@@ -29,7 +29,7 @@ class Config:
                  optimizer='adam', criterion='likelihood',
                  gradient_clip=1e0, param_clip=1e2, init_words=False,
                  input_features={},
-                 use_convo=True, conv_window=[5,5],
+                 use_convo=True, conv_window=[5,5], conv_dropout=[True,True],
                  conv_dim=[200,200],
                  pot_size=1,
                  pred_window=1, tag_list=[],
@@ -53,6 +53,7 @@ class Config:
         # convolutional layer
         self.use_convo = use_convo
         self.conv_window = conv_window
+        self.conv_dropout = conv_dropout
         self.conv_dim = conv_dim
         # CRF parameters:
         self.pot_size = pot_size
