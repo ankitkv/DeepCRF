@@ -31,14 +31,17 @@ input_features = collections.OrderedDict({'word': 200, 'lemma': 200, 'pos': 4,
 
 config = Config(input_features=input_features, tag_list=tag_list)
 
+config.conv_dim = [32,64]
+config.conv_window = [5,3]
+
 config.dropout_keep_prob = 0.5
 
-config.learning_rate = 5e-4
+config.learning_rate = 0.001
 
 config.gradient_clip = 5
 config.param_clip = 50
 
-config.num_epochs = 9
+config.num_epochs = 20
 config.patience_increase = 1.8
 
 config.optimizer = 'adam'

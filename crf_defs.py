@@ -103,11 +103,14 @@ def distance_dependent(in_layer, config, params, reuse=False):
 
 
 
-def convo_layer(in_layer, config, params, reuse=False, name='Convo'):
-    conv_window = config.conv_window
-    output_size = config.conv_dim
+def convo_layer(in_layer, config, params, i, reuse=False, name='Convo'):
+    conv_window = config.conv_window[i]
+    output_size = config.conv_dim[i]
     batch_size = config.batch_size # int(in_layer.get_shape()[0])
-    input_size = config.features_dim #int(in_layer.get_shape()[2])
+    if i == 0:
+        input_size = config.features_dim #int(in_layer.get_shape()[2])
+    else:
+        input_size = config.conv_dim[i-1]
     if reuse:
         tf.get_variable_scope().reuse_variables()
         W_conv = params.W_conv
@@ -351,7 +354,7 @@ class CRF:
         self.keep_prob = tf.placeholder(tf.float32)
         # global step
         self.global_step = tf.Variable(0.0, trainable=False)
-    
+
     def make(self, config, params, reuse=False, name='CRF'):
         with tf.variable_scope(name):
             ### EMBEDDING LAYER
@@ -366,21 +369,18 @@ class CRF:
                 print('features layer done')
             # convolution
             if config.use_convo:
-                if config.bi_convo:
-                    (out_layer,W_pre_conv,b_pre_conv) = convo_layer(out_layer,
-                                                                    config,
-                                                                    params)
+                for i in range(len(config.conv_window)):
+                    (out_layer, W_conv, b_conv) = convo_layer(out_layer,
+                                                              config,
+                                                              params, i)
                     out_layer = tf.nn.relu(out_layer)
-                (out_layer, W_conv, b_conv) = convo_layer(out_layer, config,
-                                                          params, reuse=reuse)
+                    # XXX: does this really help?
+                    out_layer = tf.nn.dropout(out_layer, self.keep_prob)
+
                 params.W_conv = W_conv
                 params.b_conv = b_conv
                 if config.verbose:
                     print('convolution layer done')
-                out_layer = tf.nn.relu(out_layer)
-
-            # TODO: does this really help? check again with concat features
-            out_layer = tf.nn.dropout(out_layer, self.keep_prob)
 
             self.out_layer = out_layer
             ### SEQU-NN

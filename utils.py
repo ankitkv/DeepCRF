@@ -29,7 +29,8 @@ class Config:
                  optimizer='adam', criterion='likelihood',
                  gradient_clip=1e0, param_clip=1e2, init_words=False,
                  input_features={},
-                 use_convo=True, bi_convo=False, conv_window=5, conv_dim=200,
+                 use_convo=True, conv_window=[5,5],
+                 conv_dim=[200,200],
                  pot_size=1,
                  pred_window=1, tag_list=[],
                  verbose=False, num_epochs=10, num_predict=5,
@@ -51,7 +52,6 @@ class Config:
         self.features_dim = sum(input_features.values())
         # convolutional layer
         self.use_convo = use_convo
-        self.bi_convo = bi_convo
         self.conv_window = conv_window
         self.conv_dim = conv_dim
         # CRF parameters:
@@ -144,7 +144,7 @@ class Batch:
                                      for label in sentence]
                                     for sentence in batch_labels]
         if fill:
-            max_len = max(config.conv_window,
+            max_len = max(sum(config.conv_window) - len(config.conv_window)+1,
                           max([len(sentence) for sentence in batch_data]) + 2)
             for i in range(config.batch_size):
                 current_len = len(batch_data[i])
