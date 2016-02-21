@@ -1,3 +1,4 @@
+import collections
 from os.path import join as pjoin
 
 # file locations
@@ -10,6 +11,7 @@ dev_file = pjoin(data_dir, 'semeval_dev/crfpp_text_batch_1.txt')
 vecs_file = pjoin(git_dir, 'Data/crf_data_overlaps/semeval_vecs.dat')
 
 vis_file = pjoin(git_dir, 'visual.pickle')
+model_file = pjoin(git_dir, 'recent.model')
 
 # feature names and tag list
 features = ['word', 'lemma', 'pos', 'normal', 'word_length',
@@ -20,12 +22,12 @@ features = ['word', 'lemma', 'pos', 'normal', 'word_length',
 
 tag_list = ['<P>', 'B', 'Bp', 'I', 'Ip', 'In', 'ID', 'O', 'OD']
 
-input_features = {'word': 200, 'lemma': 200, 'pos': 4, 'normal': 200,
-                  'word_length': 1, 'prefix': 100, 'suffix': 100,
-                  'capitalized': 1, 'word_pos': 4, 'sentence_pos': 4,
-                  'sentence_length': 1, 'med_prefix': 100,
-                  'umls_match_tag_full': 3, 'umls_match_tag_prefix': 3,
-                  'umls_match_tag_acro': 3}
+input_features = collections.OrderedDict({'word': 200, 'lemma': 200, 'pos': 4,
+                 'normal': 200, 'word_length': 1, 'prefix': 100, 'suffix': 100,
+                 'capitalized': 1, 'word_pos': 4, 'sentence_pos': 4,
+                 'sentence_length': 1, 'med_prefix': 100,
+                 'umls_match_tag_full': 3, 'umls_match_tag_prefix': 3,
+                 'umls_match_tag_acro': 3})
 
 config = Config(input_features=input_features, tag_list=tag_list)
 

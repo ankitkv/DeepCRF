@@ -96,7 +96,9 @@ def visualize_embeddings(feature, n=100):
     (feature_name, feature_value) = feature
     feature_mappings = visualization['featmap']
     if feature_name not in feature_mappings:
-        print >> sys.stderr, 'no such feature:', feature_name
+        print >> sys.stderr, 'no such feature:', feature_name + '.', \
+                             'choose one of:'
+        print >> sys.stderr, ' '.join(feature_mappings.keys())
         return
     all_values = set(feature_mappings[feature_name]['reverse'])
     while feature_value not in all_values:
@@ -107,7 +109,8 @@ def visualize_embeddings(feature, n=100):
         except ValueError:
             pass
         print >> sys.stderr, 'no such value for', feature_name + ':', \
-                             feature_value
+                             feature_value + '. choose one of:'
+        print >> sys.stderr, ' '.join([str(e) for e in all_values])
         return
     with tf.device('/cpu:0'):
         sess = tf.InteractiveSession()
@@ -119,7 +122,12 @@ def visualize_embeddings(feature, n=100):
             param_vars[feat] = emb_matrix
         embeddings_saver = tf.train.Saver(param_vars)
         embeddings_saver.restore(sess, model_file)
-        embeddings = param_vars[feature_name].eval()
+        try:
+            embeddings = param_vars[feature_name].eval()
+        except KeyError:
+            print >> sys.stderr, 'no such feature:', feature_name + '. it', \
+                           'was probably disabled when this model was trained.'
+            return
         target_index = feature_mappings[feature_name]['lookup'][feature_value]
         target_embedding = embeddings[target_index]
         dists = []
@@ -130,7 +138,8 @@ def visualize_embeddings(feature, n=100):
         values.sort(key=lambda x:x[0])
         maxnorm = values[-1][0]
         print
-        print n, 'closest neighbors of the', feature_name, feature_value + ':'
+        print str(min(n,len(values)-1))+'/'+str(len(values)-1), \
+              'closest neighbors of the', feature_name, feature_value + ':'
         print
         for d, e, v in values[1:n+1]:
             print (str(d / maxnorm) + ':').ljust(10), v
