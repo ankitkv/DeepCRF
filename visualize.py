@@ -1,8 +1,15 @@
+from __future__ import division
+
 import argparse
 import cPickle as pickle
 import sys
+import tensorflow as tf
 
-vis_file = 'visual.pickle'
+from utils import *
+
+config_file = 'Configs/my_config.py'
+vis_file = ''
+visualization = None
 
 
 class bcolors:
@@ -15,20 +22,20 @@ class bcolors:
 
 
 def read_visualization():
-    vis = None
+    global visualization
     try:
         with open(vis_file, 'rb') as f:
-            vis = pickle.load(f)
+            visualization = pickle.load(f)
+        return True
     except IOError:
         print >> sys.stderr, 'Could not read visualization file', vis_file
     except pickle.UnpicklingError:
         print >> sys.stderr, 'Could not unpickle visualization!'
-    return vis
+    return False
 
 
-def visualize(visualization, section, what):
-    if what == 'none':
-        return
+def visualize_preds(section, what):
+    global visualization
     print
     print
     print bcolors.HEADER + 'visualizing', section + bcolors.ENDC
@@ -84,22 +91,79 @@ def visualize(visualization, section, what):
             print
 
 
+def visualize_embeddings(feature, n=100):
+    global visualization
+    (feature_name, feature_value) = feature
+    feature_mappings = visualization['featmap']
+    if feature_name not in feature_mappings:
+        print >> sys.stderr, 'no such feature:', feature_name
+        return
+    all_values = set(feature_mappings[feature_name]['reverse'])
+    while feature_value not in all_values:
+        try:
+            if type(feature_value) is not int:
+                feature_value = int(feature_value)
+                continue
+        except ValueError:
+            pass
+        print >> sys.stderr, 'no such value for', feature_name + ':', \
+                             feature_value
+        return
+    with tf.device('/cpu:0'):
+        sess = tf.InteractiveSession()
+        param_vars = {}
+        for i, (feat, dim) in enumerate(config.input_features.items()):
+            shape = [len(feature_mappings[feat]['reverse']), dim]
+            initial = tf.truncated_normal(shape, stddev=0.1)
+            emb_matrix = tf.Variable(initial, name=feat + '_embedding')
+            param_vars[feat] = emb_matrix
+        embeddings_saver = tf.train.Saver(param_vars)
+        embeddings_saver.restore(sess, model_file)
+        embeddings = param_vars[feature_name].eval()
+        target_index = feature_mappings[feature_name]['lookup'][feature_value]
+        target_embedding = embeddings[target_index]
+        dists = []
+        for emb in embeddings:
+            dists.append(np.linalg.norm(emb - target_embedding))
+        values = zip(dists, embeddings,
+                     feature_mappings[feature_name]['reverse'])
+        values.sort(key=lambda x:x[0])
+        maxnorm = values[-1][0]
+        print
+        print n, 'closest neighbors of the', feature_name, feature_value + ':'
+        print
+        for d, e, v in values[1:n+1]:
+            print (str(d / maxnorm) + ':').ljust(10), v
+        print
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Testing the models for \
                                      various parameter values')
+    parser.add_argument("-conf", "--config_file",
+                        help="location of configuration file")
     parser.add_argument("-file", "--visualization_file",
-                        help="visualization file [default "+vis_file+"]")
+                        help="visualization file")
     parser.add_argument("-train", "--train",
-                        help="one of 'all', 'wrong', 'none'")
+                        help="one of 'all' or 'wrong'")
     parser.add_argument("-test", "--test",
-                        help="one of 'all', 'wrong', 'none'")
+                        help="one of 'all' or 'wrong'")
     parser.add_argument("-dev", "--dev",
-                        help="one of 'all', 'wrong', 'none'")
+                        help="one of 'all' or 'wrong'")
+    parser.add_argument("-embed", "--embed", nargs=2,
+                        help="feature name and feature value")
     args = parser.parse_args()
-    if args.visualization_file:
-        vis_file = args.visualization_file
-    visualization = read_visualization()
-    if visualization:
-        visualize(visualization, 'train', args.train or 'none')
-        visualize(visualization, 'dev', args.dev or 'none')
-        visualize(visualization, 'test', args.test or 'none')
+    if args.config_file:
+        config_file = os.path.abspath(args.config_file)
+    execfile(config_file)
+    if read_visualization():
+        if args.visualization_file:
+            vis_file = args.visualization_file
+        if args.train:
+            visualize_preds('train', args.train)
+        if args.dev:
+            visualize_preds('dev', args.dev)
+        if args.test:
+            visualize_preds('test', args.test)
+        if args.embed:
+            visualize_embeddings(args.embed)

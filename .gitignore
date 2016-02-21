@@ -4,3 +4,5 @@
 Data/
 Configs/my_config.py
 *.pickle
+*.model
+checkpoint

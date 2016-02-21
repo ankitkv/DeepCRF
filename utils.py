@@ -33,9 +33,7 @@ class Config:
                  pot_size=1,
                  pred_window=1, tag_list=[],
                  verbose=False, num_epochs=10, num_predict=5,
-                 improvement_threshold=0.995, patience_increase=2.0,
-                 visualize_train='none', visualize_test='wrong',
-                 visualize_dev='wrong'):
+                 improvement_threshold=0.995, patience_increase=2.0):
         # optimization parameters
         self.batch_size = batch_size
         self.learning_rate = learning_rate
@@ -80,9 +78,6 @@ class Config:
         self.num_predict = num_predict
         self.improvement_threshold = improvement_threshold
         self.patience_increase = patience_increase
-        self.visualize_train = visualize_train
-        self.visualize_test = visualize_test
-        self.visualize_dev = visualize_dev
 
     def make_mappings(self, data):
         self.feature_maps = dict([(feat, {'lookup': {'_unk_': 0},

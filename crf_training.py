@@ -44,6 +44,7 @@ def main():
     crf = CRF(config)
     crf.make(config, params_crf)
     sess.run(tf.initialize_all_variables())
+    embeddings_saver = tf.train.Saver(params_crf.embeddings)
     # (accuracies, preds) = train_model(train_data, dev_data, crf, config,
     #                                                       params_crf, 'CRF')
 
@@ -61,6 +62,7 @@ def main():
         dev_data_ready = prepare_data(dev_data, config)
         print 'training', i, '\t', str(datetime.now())
         crf.train_epoch(train_data_ready, config, params_crf)
+        visualization['featmap'] = config.feature_maps
         print 'validating', i, '\t', str(datetime.now())
         train_acc = crf.validate_accuracy(train_data_ready, config)
         dev_acc = crf.validate_accuracy(dev_data_ready, config)
@@ -97,6 +99,8 @@ def main():
             best_train_f1 = train_f1
             best_test_f1 = test_f1
             write_visualization(visualization)
+            embeddings_saver.save(sess, model_file)
+            print 'Wrote embeddings to', model_file
         print 'best dev F1 is:', best_f1
         print ' with train F1:', best_train_f1
         print '   and test F1:', best_test_f1
