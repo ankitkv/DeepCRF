@@ -492,27 +492,8 @@ def evaluate(sentences, threshold):
         TP += tp
         fn = len(true_mentions) - tp
         FN += fn
-        vis_sentence = []
-        preds = set(p for pred, th in sentence[2] for p in pred
-                    if th >= threshold)
-        true_mentions = set(m for mention in true_mentions
-                            for m in mention)
-        for i, word in enumerate(sentence[3]):
-            word = dict(word)
-            if i in true_mentions:
-                word['true_mention'] = True
-                if i in preds:
-                    word['pred'] = True
-                else:
-                    word['pred'] = False
-            else:
-                word['true_mention'] = False
-                if i in preds:
-                    word['pred'] = True
-                else:
-                    word['pred'] = False
-            vis_sentence.append(word)
-        visual.append((fp, fn, vis_sentence))
+        preds = set(pred for pred, th in sentence[2] if th >= threshold)
+        visual.append((sentence[3], true_mentions, preds, fp, fn))
     if (TP + FP) == 0:
         prec = 0
         recall = 0

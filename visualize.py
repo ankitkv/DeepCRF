@@ -31,22 +31,56 @@ def visualize(visualization, section, what):
         return
     print
     print
-    print bcolors.OKBLUE + 'visualizing', section + bcolors.ENDC
+    print bcolors.HEADER + 'visualizing', section + bcolors.ENDC
     print
     visual = visualization[section]
-    for (fp, fn, sent) in visual:
+    for (sentence, true_mentions, preds, fp, fn) in visual:
         if what == 'all' or (what == 'wrong' and (fp > 0 or fn > 0)):
-            for word in sent:
-                if word['true_mention']:
-                    if word['pred']:
-                        print bcolors.OKGREEN + word['word'] + bcolors.ENDC,
-                    else:
-                        print bcolors.WARNING + word['word'] + bcolors.ENDC,
+            print bcolors.OKBLUE + '\nTrue:' + bcolors.ENDC,
+            for mention in true_mentions:
+                if mention not in preds:
+                    print bcolors.WARNING + str(mention) + bcolors.ENDC,
                 else:
-                    if word['pred']:
-                        print bcolors.FAIL + word['word'] + bcolors.ENDC,
+                    print bcolors.OKGREEN + str(mention) + bcolors.ENDC,
+            print bcolors.OKBLUE + '\nPred:' + bcolors.ENDC,
+            for pred in preds:
+                if pred not in true_mentions:
+                    print bcolors.FAIL + str(pred) + bcolors.ENDC,
+                else:
+                    print bcolors.OKGREEN + str(pred) + bcolors.ENDC,
+            preds = set(p for pred in preds for p in pred)
+            true_mentions = set(m for mention in true_mentions
+                                  for m in mention)
+            print bcolors.OKBLUE + '\nIndx:' + bcolors.ENDC,
+            for i, word in enumerate(sentence):
+                if i in true_mentions:
+                    if i in preds:
+                        print bcolors.OKGREEN + \
+                            str(i).center(len(word['word'])) + bcolors.ENDC,
                     else:
-                        print word['word'],
+                        print bcolors.WARNING + \
+                            str(i).center(len(word['word'])) + bcolors.ENDC,
+                else:
+                    if i in preds:
+                        print bcolors.FAIL + \
+                            str(i).center(len(word['word'])) + bcolors.ENDC,
+                    else:
+                        print str(i).center(len(word['word'])),
+            print bcolors.OKBLUE + '\nSent:' + bcolors.ENDC,
+            for i, word in enumerate(sentence):
+                if i in true_mentions:
+                    if i in preds:
+                        print bcolors.OKGREEN + \
+                            word['word'].center(len(str(i))) + bcolors.ENDC,
+                    else:
+                        print bcolors.WARNING + \
+                            word['word'].center(len(str(i))) + bcolors.ENDC,
+                else:
+                    if i in preds:
+                        print bcolors.FAIL + \
+                            word['word'].center(len(str(i))) + bcolors.ENDC,
+                    else:
+                        print word['word'].center(len(str(i))),
             print
 
 
