@@ -471,7 +471,7 @@ def preds_to_sentences(model_preds, config):
     for (pred, full, pots) in model_preds:
         found = tags_to_mentions([config.tag_list[x[1]] for x in pred])
         gold = tags_to_mentions([config.tag_list[x[0]] for x in pred])
-        res += [('', gold, tuple([(x, 1) for x in found]), full, pots)]
+        res += [('', gold, tuple([(x, 1) for x in found]), full, pots, pred)]
     return res
 
 
@@ -495,7 +495,8 @@ def evaluate(sentences, threshold):
         fn = len(true_mentions) - tp
         FN += fn
         preds = set(pred for pred, th in sentence[2] if th >= threshold)
-        visual.append((sentence[3], sentence[4], true_mentions, preds, fp, fn))
+        visual.append((sentence[3], sentence[4], sentence[5], true_mentions,
+                       preds, fp, fn))
     if (TP + FP) == 0:
         prec = 0
         recall = 0

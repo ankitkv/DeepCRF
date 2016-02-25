@@ -43,7 +43,7 @@ def visualize_preds(section, what):
     print bcolors.HEADER + 'visualizing', section + bcolors.ENDC
     print
     visual = visualization[section]
-    for (sentence, _, true_mentions, preds, fp, fn) in visual:
+    for (sentence, _, _, true_mentions, preds, fp, fn) in visual:
         if what == 'all' or (what == 'wrong' and (fp > 0 or fn > 0)):
             print bcolors.OKBLUE + '\nTrue:' + bcolors.ENDC,
             for mention in true_mentions:
@@ -93,7 +93,7 @@ def visualize_preds(section, what):
             print
 
 
-def visualize_activations(args, n=25):
+def visualize_activations(args, n=25, use_pots=True):
     global visualization
     feature, selected_tag = args
     if feature not in input_features:
@@ -112,13 +112,18 @@ def visualize_activations(args, n=25):
         visual.extend(visualization[section])
     window = (sum(config.conv_window) - len(config.conv_window) + 1) // 2
     all_pots = collections.defaultdict(lambda: collections.defaultdict(list))
-    for (sentence, potentials, _, _, _, _) in visual:
-        for i, (_, pots) in enumerate(zip(sentence, potentials)):
+    for (sentence, potentials, preds, _, _, _, _) in visual:
+        for i, (_, pots, pred) in enumerate(zip(sentence, potentials, preds)):
             for j in range(-window, window+1):
                 pos = i + j
                 if pos >= 0 and pos < len(sentence):
                     value = sentence[pos][feature]
-                    all_pots[value][j].append(pots)
+                    if use_pots:
+                        all_pots[value][j].append(pots)
+                    else:
+                        pots = [0] * len(tag_list)
+                        pots[pred[1]] = 1.0
+                        all_pots[value][j].append(pots)
     final = collections.defaultdict(lambda: collections.defaultdict(list))
     for value, positions in all_pots.items():
         for pos, pots in positions.items():
@@ -222,9 +227,13 @@ if __name__ == '__main__':
                         help="one of 'all' or 'wrong'")
     parser.add_argument("-dev", "--dev",
                         help="one of 'all' or 'wrong'")
-    parser.add_argument("-activ", "--activations", nargs=2,
+    parser.add_argument("-pots", "--potentials", nargs=2,
                         metavar=("FEATURE_NAME", "TAG"),
-                        help="feature values that lead to activations. " \
+                        help="feature values that lead to high unary pots. " \
+                             "TAG can be 'all'.")
+    parser.add_argument("-outs", "--outputs", nargs=2,
+                        metavar=("FEATURE_NAME", "TAG"),
+                        help="feature values that lead to outputs. " \
                              "TAG can be 'all'.")
     parser.add_argument("-embed", "--embed", nargs=2,
                         metavar=("FEATURE_NAME", "FEATURE_VALUE"),
@@ -242,8 +251,10 @@ if __name__ == '__main__':
             visualize_preds('dev', args.dev)
         if args.test:
             visualize_preds('test', args.test)
-        if args.activations:
-            visualize_activations(args.activations)
+        if args.potentials:
+            visualize_activations(args.potentials, use_pots=True)
+        if args.outputs:
+            visualize_activations(args.outputs, use_pots=False)
         if args.embed:
             visualize_embeddings(args.embed)
 
