@@ -402,6 +402,7 @@ class CRF:
             params.b_pot_bin = b_p_b
             (un_pots, W_p_u, b_p_u) = unary_log_pots(out_layer, self.mask,
                                                    config, params, reuse=reuse)
+            self.unary_pots = un_pots
             params.W_pot_un = W_p_u
             params.b_pot_un = b_p_u
             pots_layer = log_pots(un_pots, bin_pots, config, params)

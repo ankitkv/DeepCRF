@@ -3,6 +3,8 @@ from __future__ import division
 import argparse
 import cPickle as pickle
 import sys
+import collections
+import numpy as np
 import tensorflow as tf
 
 from utils import *
@@ -41,7 +43,7 @@ def visualize_preds(section, what):
     print bcolors.HEADER + 'visualizing', section + bcolors.ENDC
     print
     visual = visualization[section]
-    for (sentence, true_mentions, preds, fp, fn) in visual:
+    for (sentence, _, true_mentions, preds, fp, fn) in visual:
         if what == 'all' or (what == 'wrong' and (fp > 0 or fn > 0)):
             print bcolors.OKBLUE + '\nTrue:' + bcolors.ENDC,
             for mention in true_mentions:
@@ -91,14 +93,70 @@ def visualize_preds(section, what):
             print
 
 
-def visualize_embeddings(feature, n=100):
+def visualize_activations(args, n=25):
+    global visualization
+    feature, selected_tag = args
+    if feature not in input_features:
+        print >> sys.stderr, 'no such feature:', feature + '.', \
+                             'choose one of:'
+        print >> sys.stderr, ' '.join(input_features.keys())
+        return
+    if selected_tag == 'all': selected_tag = None
+    if selected_tag and selected_tag not in tag_list:
+        print >> sys.stderr, 'no such tag:', selected_tag + '.', \
+                             'choose one of:'
+        print >> sys.stderr, ' '.join(tag_list)
+        return
+    visual = []
+    for section in ('train', 'dev', 'test'):
+        visual.extend(visualization[section])
+    window = (sum(config.conv_window) - len(config.conv_window) + 1) // 2
+    all_pots = collections.defaultdict(lambda: collections.defaultdict(list))
+    for (sentence, potentials, _, _, _, _) in visual:
+        for i, (_, pots) in enumerate(zip(sentence, potentials)):
+            for j in range(-window, window+1):
+                pos = i + j
+                if pos >= 0 and pos < len(sentence):
+                    value = sentence[pos][feature]
+                    all_pots[value][j].append(pots)
+    final = collections.defaultdict(lambda: collections.defaultdict(list))
+    for value, positions in all_pots.items():
+        for pos, pots in positions.items():
+            mean = np.array(pots).mean(0)
+            for i, pot in enumerate(mean):
+                final[i][pos].append((pot, value))
+    for tag, positions in final.items():
+        if selected_tag and tag_list[tag] != selected_tag: continue
+        print
+        print bcolors.HEADER+'TAG', tag_list[tag] + ':'+bcolors.ENDC
+        print
+        for pos, values in sorted(positions.items(), key=lambda x:x[0]):
+            if pos == 0:
+                color = bcolors.OKGREEN
+            else:
+                color = bcolors.WARNING
+            print
+            print bcolors.OKBLUE+'Position', str(pos) + ':'+bcolors.ENDC
+            values.sort(key=lambda x:x[0], reverse=True)
+            for pot, value in values[:n]:
+                print color+str(value)+bcolors.ENDC, '('+str(pot)+')',
+            if len(values) > 2*n:
+                print
+                print ' ... '
+            for pot, value in values[n:][-n:]:
+                print color+str(value)+bcolors.ENDC, '('+str(pot)+')',
+            print
+        print
+
+
+def visualize_embeddings(feature, n=50):
     global visualization
     (feature_name, feature_value) = feature
     feature_mappings = visualization['featmap']
-    if feature_name not in feature_mappings:
+    if feature_name not in input_features:
         print >> sys.stderr, 'no such feature:', feature_name + '.', \
                              'choose one of:'
-        print >> sys.stderr, ' '.join(feature_mappings.keys())
+        print >> sys.stderr, ' '.join(input_features.keys())
         return
     all_values = set(feature_mappings[feature_name]['reverse'])
     while feature_value not in all_values:
@@ -122,12 +180,7 @@ def visualize_embeddings(feature, n=100):
             param_vars[feat] = emb_matrix
         embeddings_saver = tf.train.Saver(param_vars)
         embeddings_saver.restore(sess, model_file)
-        try:
-            embeddings = param_vars[feature_name].eval()
-        except KeyError:
-            print >> sys.stderr, 'no such feature:', feature_name + '. it', \
-                           'was probably disabled when this model was trained.'
-            return
+        embeddings = param_vars[feature_name].eval()
         target_index = feature_mappings[feature_name]['lookup'][feature_value]
         target_embedding = embeddings[target_index]
         dists = []
@@ -144,6 +197,16 @@ def visualize_embeddings(feature, n=100):
         for d, e, v in values[1:n+1]:
             print (str(d / maxnorm) + ':').ljust(10), v
         print
+        if len(values)-1 > n:
+            full = len(values)-1
+            values = values[n+1:][-n:]
+            print
+            print str(min(n,len(values)))+'/'+str(full), \
+                 'farthest neighbors of the', feature_name, feature_value + ':'
+            print
+            for d, e, v in values[:n]:
+                print (str(d / maxnorm) + ':').ljust(10), v
+            print
 
 
 if __name__ == '__main__':
@@ -159,7 +222,12 @@ if __name__ == '__main__':
                         help="one of 'all' or 'wrong'")
     parser.add_argument("-dev", "--dev",
                         help="one of 'all' or 'wrong'")
+    parser.add_argument("-activ", "--activations", nargs=2,
+                        metavar=("FEATURE_NAME", "TAG"),
+                        help="feature values that lead to activations. " \
+                             "TAG can be 'all'.")
     parser.add_argument("-embed", "--embed", nargs=2,
+                        metavar=("FEATURE_NAME", "FEATURE_VALUE"),
                         help="feature name and feature value")
     args = parser.parse_args()
     if args.config_file:
@@ -174,5 +242,8 @@ if __name__ == '__main__':
             visualize_preds('dev', args.dev)
         if args.test:
             visualize_preds('test', args.test)
+        if args.activations:
+            visualize_activations(args.activations)
         if args.embed:
             visualize_embeddings(args.embed)
+
