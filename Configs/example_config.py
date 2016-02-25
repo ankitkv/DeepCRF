@@ -30,19 +30,19 @@ input_features = collections.OrderedDict({'pos': 7,
 
 config = Config(input_features=input_features, tag_list=tag_list)
 
-config.conv_dim = [64,256]
+config.conv_dim = [50,200]
 config.conv_window = [5,5]
 config.conv_dropout = [True, True]
 
-config.dropout_keep_prob = 0.5
+config.dropout_keep_prob = 0.7
 
 config.learning_rate = 0.001
 
-config.gradient_clip = 5
-config.param_clip = 50
+config.gradient_clip = 50
+config.param_clip = 250
 
-config.num_epochs = 20
-config.patience_increase = 1.8
+config.num_epochs = 10
+config.patience_increase = 1.85
 
 config.optimizer = 'adam'
-config.batch_size = 50
+config.batch_size = 25
