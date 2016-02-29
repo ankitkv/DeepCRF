@@ -43,7 +43,7 @@ def visualize_preds(section, what):
     print bcolors.HEADER + 'visualizing', section + bcolors.ENDC
     print
     visual = visualization[section]
-    for (sentence, _, _, true_mentions, preds, fp, fn) in visual:
+    for (sentence, _, _, _, true_mentions, preds, fp, fn) in visual:
         if what == 'all' or (what == 'wrong' and (fp > 0 or fn > 0)):
             print bcolors.OKBLUE + '\nTrue:' + bcolors.ENDC,
             for mention in true_mentions:
@@ -112,18 +112,20 @@ def visualize_activations(args, n=25, use_pots=True):
         visual.extend(visualization[section])
     window = (sum(config.conv_window) - len(config.conv_window) + 1) // 2
     all_pots = collections.defaultdict(lambda: collections.defaultdict(list))
-    for (sentence, potentials, preds, _, _, _, _) in visual:
-        for i, (_, pots, pred) in enumerate(zip(sentence, potentials, preds)):
+    for (sentence, un_pots, bin_pots, preds, _, _, _, _) in visual:
+        for i, (upots, bpots, pred) in enumerate(zip(un_pots,bin_pots,preds)):
             for j in range(-window, window+1):
                 pos = i + j
                 if pos >= 0 and pos < len(sentence):
                     value = sentence[pos][feature]
                     if use_pots:
-                        all_pots[value][j].append(pots)
+                        # TODO marginalize over binary potentials
+                        print 'unary:', upots.shape, upots
+                        print 'binary:', bpots.shape, bpots
                     else:
-                        pots = [0] * len(tag_list)
-                        pots[pred[1]] = 1.0
-                        all_pots[value][j].append(pots)
+                        upots = [0] * len(tag_list)
+                        upots[pred[1]] = 1.0
+                    all_pots[value][j].append(upots)
     final = collections.defaultdict(lambda: collections.defaultdict(list))
     for value, positions in all_pots.items():
         for pos, pots in positions.items():

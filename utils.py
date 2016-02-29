@@ -301,7 +301,8 @@ def tag_dataset(pre_data, config, params, mod_type, model):
     data = mixed_data + missing * [mixed_data[-1]]
     # tagging sentences
     res = []
-    pots = []
+    un_pots = []
+    bin_pots = []
     print 'processing %d sentences' % ((len(data) / batch_size) * batch_size,)
     for i in range(len(data) / batch_size):
         batch.read(data, i * batch_size, config, fill=True)
@@ -315,20 +316,23 @@ def tag_dataset(pre_data, config, params, mod_type, model):
             sess = tf.get_default_session()
             f_dict = make_feed_crf(model, batch, 1.0)
             preds_layer = tf.argmax(model.map_tagging, 2)
-            preds_layer_output, un_pots_output = sess.run(
-                             [preds_layer, model.unary_pots], feed_dict=f_dict)
+            preds_layer_output, un_pots_output, bin_pots_output = sess.run(
+                            [preds_layer, model.unary_pots, model.binary_pots],
+                            feed_dict=f_dict)
         tmp_preds = [[(batch.tags[i][j], token_preds)
                       for j, token_preds in enumerate(sentence)
                             if 1 in batch.tag_windows_one_hot[i][j]]
                      for i, sentence in enumerate(list(preds_layer_output))]
         res += tmp_preds
-        pots += list(un_pots_output)
+        un_pots += list(un_pots_output)
+        bin_pots += list(bin_pots_output)
     # re-order data
     res = res[:len(pre_data)]
-    pots = pots[:len(pre_data)]
-    res = [(dat, full, pts) for i, dat, full, pts
-                       in sorted(zip(mixed_indices, res, data, pots),
-                       key=lambda x:x[0])]
+    un_pots = un_pots[:len(pre_data)]
+    bin_pots = bin_pots[:len(pre_data)]
+    res = [(dat, full, un_pts, bin_pts) for i, dat, full, un_pts, bin_pts
+                    in sorted(zip(mixed_indices, res, data, un_pots, bin_pots),
+                    key=lambda x:x[0])]
     return res
 
 
@@ -468,10 +472,11 @@ def tags_to_mentions(tagging):
 
 def preds_to_sentences(model_preds, config):
     res = []
-    for (pred, full, pots) in model_preds:
+    for (pred, full, un_pots, bin_pots) in model_preds:
         found = tags_to_mentions([config.tag_list[x[1]] for x in pred])
         gold = tags_to_mentions([config.tag_list[x[0]] for x in pred])
-        res += [('', gold, tuple([(x, 1) for x in found]), full, pots, pred)]
+        res += [('', gold, tuple([(x, 1) for x in found]),
+                full, un_pots, bin_pots, pred)]
     return res
 
 
@@ -495,8 +500,8 @@ def evaluate(sentences, threshold):
         fn = len(true_mentions) - tp
         FN += fn
         preds = set(pred for pred, th in sentence[2] if th >= threshold)
-        visual.append((sentence[3], sentence[4], sentence[5], true_mentions,
-                       preds, fp, fn))
+        visual.append((sentence[3], sentence[4], sentence[5], sentence[6],
+                       true_mentions, preds, fp, fn))
     if (TP + FP) == 0:
         prec = 0
         recall = 0
