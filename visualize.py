@@ -5,6 +5,7 @@ import cPickle as pickle
 import sys
 import collections
 import numpy as np
+import scipy.misc
 import tensorflow as tf
 
 from utils import *
@@ -113,27 +114,33 @@ def visualize_activations(args, n=25, use_pots=True):
     window = (sum(config.conv_window) - len(config.conv_window) + 1) // 2
     all_pots = collections.defaultdict(lambda: collections.defaultdict(list))
     for (sentence, un_pots, bin_pots, preds, _, _, _, _) in visual:
-        for i, (upots, bpots, pred) in enumerate(zip(un_pots,bin_pots,preds)):
+        pre_len = (len(un_pots) - len(sentence)) // 2
+        for i, (upots, bpots, pred) in enumerate(zip(
+                                  un_pots[pre_len:],bin_pots[pre_len:],preds)):
             for j in range(-window, window+1):
                 pos = i + j
                 if pos >= 0 and pos < len(sentence):
                     value = sentence[pos][feature]
-                    if use_pots:
-                        # TODO marginalize over binary potentials
-                        print 'unary:', upots.shape, upots
-                        print 'binary:', bpots.shape, bpots
-                    else:
-                        upots = [0] * len(tag_list)
+                    if not use_pots:
+                        upots = [0.0] * len(tag_list)
                         upots[pred[1]] = 1.0
-                    all_pots[value][j].append(upots)
+                        use_bpots = False
+                    else:
+                        use_bpots = pos > 0
+                    all_pots[value][j].append((use_bpots, upots, bpots))
     final = collections.defaultdict(lambda: collections.defaultdict(list))
     for value, positions in all_pots.items():
-        for pos, pots in positions.items():
-            mean = np.array(pots).mean(0)
-            for i, pot in enumerate(mean):
+        for pos, pot_list in positions.items():
+            for i in range(len(tag_list)):
+                if selected_tag and tag_list[i] != selected_tag: continue
+                P = np.array([p for p,u,b in pot_list])
+                U = np.array([u for p,u,b in pot_list])
+                B = np.array([b for p,u,b in pot_list])
+                pot = np.sum(U[:,i]) + np.dot(P,
+                                              scipy.misc.logsumexp(B[:,:,i],1))
+                pot /= float(len(pot_list))
                 final[i][pos].append((pot, value))
     for tag, positions in final.items():
-        if selected_tag and tag_list[tag] != selected_tag: continue
         print
         print bcolors.HEADER+'TAG', tag_list[tag] + ':'+bcolors.ENDC
         print
