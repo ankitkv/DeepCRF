@@ -94,7 +94,7 @@ def visualize_preds(section, what):
             print
 
 
-def visualize_activations(args, n=25, use_pots=True):
+def visualize_activations(args, n=25, rare=0.0001, use_pots=True):
     global visualization
     feature, selected_tag = args
     if feature not in input_features:
@@ -113,6 +113,12 @@ def visualize_activations(args, n=25, use_pots=True):
         visual.extend(visualization[section])
     window = (sum(config.conv_window) - len(config.conv_window) + 1) // 2
     all_pots = collections.defaultdict(lambda: collections.defaultdict(list))
+    fd = collections.defaultdict(int)
+    for v in visual:
+        sentence = v[0]
+        for word in sentence:
+            fd[word[feature]] += 1
+    valid = set(k for k,v in fd.items() if v >= rare * sum(fd.values()))
     for (sentence, un_pots, bin_pots, preds, _, _, _, _) in visual:
         pre_len = (len(un_pots) - len(sentence)) // 2
         for i, (upots, bpots, pred) in enumerate(zip(
@@ -121,6 +127,8 @@ def visualize_activations(args, n=25, use_pots=True):
                 pos = i + j
                 if pos >= 0 and pos < len(sentence):
                     value = sentence[pos][feature]
+                    if value not in valid:
+                        continue
                     if not use_pots:
                         upots = [0.0] * len(tag_list)
                         upots[pred[1]] = 1.0
