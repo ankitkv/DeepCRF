@@ -2,6 +2,7 @@ from pprint import pprint
 import os
 import argparse
 import sys
+import shutil
 from datetime import datetime
 import cPickle as pickle
 
@@ -43,6 +44,19 @@ def main():
     sess = tf.InteractiveSession()
     crf = CRF(config)
     crf.make(config, params_crf)
+    trainf1_holder = tf.Variable(0.0, name='trainf1')
+    devf1_holder = tf.Variable(0.0, name='devf1')
+    testf1_holder = tf.Variable(0.0, name='testf1')
+    tf.scalar_summary('trainf1', trainf1_holder)
+    tf.scalar_summary('devf1', devf1_holder)
+    tf.scalar_summary('testf1', testf1_holder)
+    try:
+        shutil.rmtree(log_dir)
+    except OSError:
+        pass
+    merged = tf.merge_all_summaries()
+    writer = tf.train.SummaryWriter(log_dir, sess.graph_def)
+
     sess.run(tf.initialize_all_variables())
     embeddings_saver = tf.train.Saver(params_crf.embeddings)
     # (accuracies, preds) = train_model(train_data, dev_data, crf, config,
@@ -83,6 +97,12 @@ def main():
         print 'test epoch', i, '\t', str(datetime.now())
         test_f1, visual = evaluate(sentences, 0.5)
         visualization['test'] = visual
+        summary = sess.run(merged, feed_dict={
+            trainf1_holder: train_f1,
+            devf1_holder: f1,
+            testf1_holder: test_f1})
+        writer.add_summary(summary, i)
+
         if f1 > best_f1:
             print 'found new best!'
             old_p = patience
