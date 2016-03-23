@@ -1,3 +1,4 @@
-gs1: Re-introduced group sparsity. l1_reg = 1e-2
-gs2: l1_reg = 1.0
-gs3: l1_reg = 1e-1
+gsl20: Re-introduced group sparsity. l1_reg = 1.0
+gsl21: l1_reg = 1e-1
+gsl22: l1_reg = 1e-2
+gsl23: l1_reg = 1e-3
