@@ -25,6 +25,7 @@ def linearize_indices(indices, dims):
 ###############################################
 class Config:
     def __init__(self, batch_size=20, learning_rate=1e-2,
+                 l1_reg=1e-2, l1_list=[],
                  nn_obj_weight=-1, dropout_keep_prob=0.5,
                  optimizer='adam', criterion='likelihood',
                  gradient_clip=1e0, param_clip=1e2, init_words=False,
@@ -39,6 +40,8 @@ class Config:
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         # regularization parameters
+        self.l1_reg = l1_reg
+        self.l1_list = l1_list
         self.dropout_keep_prob = dropout_keep_prob
         self.nn_obj_weight = nn_obj_weight  # for mixed training
         # optimization configuration
@@ -261,10 +264,11 @@ def read_vectors(file_name, vocab):
 
 
 # norm functions
-def L1_norm(tensor):
+def L1L2_norm(tensor):
     return tf.reduce_sum(tf.sqrt(tf.reduce_sum(tf.mul(tensor, tensor), 1)))
-    #return tf.reduce_sum(tf.abs(tensor))
 
+def L1Linf_norm(tensor):
+    return tf.reduce_sum(tf.reduce_max(tf.abs(tensor), 1))
 
 def L2_norm(tensor):
     return tf.sqrt(tf.reduce_sum(tf.mul(tensor, tensor)))

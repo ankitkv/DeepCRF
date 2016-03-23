@@ -357,6 +357,8 @@ class CRF:
 
     def make(self, config, params, reuse=False, name='CRF'):
         with tf.variable_scope(name):
+            self.l1_norm = tf.reduce_sum(tf.zeros([1]))
+
             ### EMBEDDING LAYER
             if reuse:
                 tf.get_variable_scope().reuse_variables()
@@ -365,6 +367,8 @@ class CRF:
                                                     config, params,
                                                     reuse=reuse)
             params.embeddings = embeddings
+            for feat in config.l1_list:
+                self.l1_norm += L1L2_norm(params.embeddings[feat])
             if config.verbose:
                 print('features layer done')
             # convolution
@@ -445,6 +449,7 @@ class CRF:
             self.criteria = {}
             self.criteria['likelihood'] = -self.log_likelihood
             for k in self.criteria:
+                self.criteria[k] += config.l1_reg * self.l1_norm
                 if config.nn_obj_weight > 0:
                     self.criteria[k] -= (config.nn_obj_weight * cross_entropy)
             # corresponding training steps, gradient clipping

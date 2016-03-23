@@ -36,7 +36,12 @@ config.conv_dim = [50,200]
 config.conv_window = [5,5]
 config.conv_dropout = [True, True]
 
-config.dropout_keep_prob = 0.7
+config.l1_list = [f for f in
+        ('word', 'lemma', 'normal', 'prefix', 'suffix')
+    if f in input_features]
+config.l1_reg = 1e-2
+
+config.dropout_keep_prob = 0.75
 
 config.learning_rate = 0.001
 
