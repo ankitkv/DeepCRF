@@ -37,7 +37,7 @@ config.conv_window = [5,5]
 config.conv_dropout = [True, True]
 
 config.l1_list = [f for f in
-        ('word', 'lemma', 'normal', 'prefix', 'suffix')
+        ('word', 'lemma', 'normal', 'prefix', 'suffix', 'med_prefix')
     if f in input_features]
 config.l1_reg = 1e-2
 
