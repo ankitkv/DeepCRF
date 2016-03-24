@@ -1,6 +1,7 @@
 gsl20: Re-introduced group sparsity. l1_reg = 1.0       70.17
 gsl21: l1_reg = 1e-1                                    75.11
 gsl22: l1_reg = 1e-2                                    78.42
+gsl22-2: l1_reg = 1e-2                                  77.73
 gsl23: l1_reg = 1e-3                                    77.74
 
 gslinf0: L1 of row-wise L-infinity. l1_reg = 1.0        73.91
