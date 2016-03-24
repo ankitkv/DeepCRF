@@ -6,6 +6,7 @@ import sys
 import collections
 import numpy as np
 import scipy.misc
+import scipy.spatial.distance
 import tensorflow as tf
 
 from utils import *
@@ -207,10 +208,11 @@ def visualize_embeddings(feature, n=50):
         target_embedding = embeddings[target_index]
         dists = []
         for emb in embeddings:
-            dists.append(np.linalg.norm(emb - target_embedding))
+            dists.append(scipy.spatial.distance.cosine(emb, target_embedding))
         values = zip(dists, embeddings,
                      feature_mappings[feature_name]['reverse'])
         values.sort(key=lambda x:x[0])
+        values = [(d,e,v) for (d,e,v) in values if np.linalg.norm(e) >= 1e-6]
         maxnorm = values[-1][0]
         print
         print str(min(n,len(values)-1))+'/'+str(len(values)-1), \
@@ -229,6 +231,37 @@ def visualize_embeddings(feature, n=50):
             for d, e, v in values[:n]:
                 print (str(d / maxnorm) + ':').ljust(10), v
             print
+
+
+def visualize_sparsity(feature_name, n=50):
+    global visualization
+    feature_mappings = visualization['featmap']
+    if feature_name not in input_features:
+        print >> sys.stderr, 'no such feature:', feature_name + '.', \
+                             'choose one of:'
+        print >> sys.stderr, ' '.join(input_features.keys())
+        return
+    with tf.device('/cpu:0'):
+        sess = tf.InteractiveSession()
+        param_vars = {}
+        for i, (feat, dim) in enumerate(config.input_features.items()):
+            shape = [len(feature_mappings[feat]['reverse']), dim]
+            initial = tf.truncated_normal(shape, stddev=0.1)
+            emb_matrix = tf.Variable(initial, name=feat + '_embedding')
+            param_vars[feat] = emb_matrix
+        embeddings_saver = tf.train.Saver(param_vars)
+        embeddings_saver.restore(sess, model_file)
+        embeddings = param_vars[feature_name].eval()
+        print
+        print 'Non-zero embeddings: ' + str(sum(1 for emb in embeddings
+                  if np.linalg.norm(emb) >= 1e-6)) + '/' + str(len(embeddings))
+        print
+        print 'Top embeddings:'
+        values = zip(embeddings, feature_mappings[feature_name]['reverse'])
+        values.sort(key=lambda x:np.linalg.norm(x[0]), reverse=True)
+        for e, v in values[:n]:
+            print (str(np.linalg.norm(e)) + ':').ljust(10), v
+        print
 
 
 if __name__ == '__main__':
@@ -255,6 +288,8 @@ if __name__ == '__main__':
     parser.add_argument("-embed", "--embed", nargs=2,
                         metavar=("FEATURE_NAME", "FEATURE_VALUE"),
                         help="feature name and feature value")
+    parser.add_argument("-sparsity", "--sparsity", metavar="FEATURE_NAME",
+                        help="sparsity in the embeddings")
     args = parser.parse_args()
     if args.config_file:
         config_file = os.path.abspath(args.config_file)
@@ -274,4 +309,6 @@ if __name__ == '__main__':
             visualize_activations(args.outputs, use_pots=False)
         if args.embed:
             visualize_embeddings(args.embed)
+        if args.sparsity:
+            visualize_sparsity(args.sparsity)
 
