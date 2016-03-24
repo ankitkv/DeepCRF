@@ -30,7 +30,11 @@ input_features = collections.OrderedDict({'pos': 10,
                  'umls_match_tag_full': 3, 'umls_match_tag_prefix': 3,
                  'umls_match_tag_acro': 3})
 
-config = Config(input_features=input_features, tag_list=tag_list)
+upper_features = set(['umls_match_tag_full', 'umls_match_tag_prefix',
+                      'umls_match_tag_acro'])
+
+config = Config(input_features=input_features, upper_features=upper_features,
+                tag_list=tag_list)
 
 config.conv_dim = [50,200]
 config.conv_window = [5,5]

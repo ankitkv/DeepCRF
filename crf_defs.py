@@ -48,7 +48,8 @@ def bias_variable(shape, name='weight'):
 # NN layers                       #
 ###################################
 def feature_layer(in_layer, config, params, reuse=False):
-    in_features = config.input_features
+    in_features = {k:v for k,v in config.input_features.items()
+                        if k not in config.upper_features}
     features_dim = config.features_dim
     batch_size = config.batch_size
     feature_mappings = config.feature_maps
@@ -63,7 +64,8 @@ def feature_layer(in_layer, config, params, reuse=False):
         param_dic = params.init_dic
         param_vars = {}
         embeddings = []
-        for i, (feat, dim) in enumerate(in_features.items()):
+        for i, (feat, dim) in enumerate(config.input_features.items()):
+            if feat not in in_features: continue
             if feat in param_dic: #TODO: needs to be updated
                 embeddings = \
                       tf.Variable(tf.convert_to_tensor(param_dic[feat],
@@ -335,7 +337,6 @@ def log_score(potentials, window_indices, mask, config):
 class CRF:
     def __init__(self, config):
         self.batch_size = config.batch_size
-        num_features = len(config.input_features)
         # input_ids <- batch.features
         self.input_ids = tf.placeholder(tf.int32)
         # mask <- batch.mask
