@@ -29,7 +29,7 @@ class Config:
                  nn_obj_weight=-1, dropout_keep_prob=0.5,
                  optimizer='adam', criterion='likelihood',
                  gradient_clip=1e0, param_clip=1e2, init_words=False,
-                 input_features={}, upper_features=set(),
+                 input_features={},
                  use_convo=True, conv_window=[5,5], conv_dropout=[True,True],
                  conv_dim=[200,200],
                  pot_size=1,
@@ -52,9 +52,7 @@ class Config:
         # input layer
         self.init_words = init_words
         self.input_features = input_features
-        self.upper_features = upper_features
-        self.features_dim = sum(v for k,v in self.input_features.items()
-                                if k not in upper_features)
+        self.features_dim = sum(input_features.values())
         # convolutional layer
         self.use_convo = use_convo
         self.conv_window = conv_window
