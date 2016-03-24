@@ -8,6 +8,7 @@ import numpy as np
 import scipy.misc
 import scipy.spatial.distance
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
 from utils import *
 
@@ -233,7 +234,7 @@ def visualize_embeddings(feature, n=50):
             print
 
 
-def visualize_sparsity(feature_name, n=50):
+def visualize_sparsity(feature_name, n=200):
     global visualization
     feature_mappings = visualization['featmap']
     if feature_name not in input_features:
@@ -262,6 +263,8 @@ def visualize_sparsity(feature_name, n=50):
         for e, v in values[:n]:
             print (str(np.linalg.norm(e)) + ':').ljust(10), v
         print
+        plt.plot([np.linalg.norm(e) for e,v in values])
+        plt.show()
 
 
 if __name__ == '__main__':
