@@ -2,7 +2,7 @@ import collections
 from os.path import join as pjoin
 
 # file locations
-git_dir = '/home/jernite/Code/DeepCRF'
+git_dir = '/home/ankit/devel/DeepCRF'
 
 data_dir = pjoin(git_dir, 'Data/crf_data/')
 
@@ -26,15 +26,19 @@ tag_list = ['<P>', 'B', 'Bp', 'I', 'Ip', 'In', 'ID', 'O', 'OD']
 
 input_features = collections.OrderedDict({'pos': 10,
                  'normal': 20, 'prefix': 15, 'suffix': 15,
-                 'all_caps': 1, 'capitalized': 1, 'med_prefix': 15,
-                 'umls_match_tag_full': 3, 'umls_match_tag_prefix': 3,
-                 'umls_match_tag_acro': 3})
+                 'all_caps': 1, 'capitalized': 1, 'med_prefix': 15})
 
-config = Config(input_features=input_features, tag_list=tag_list)
+direct_features = collections.OrderedDict({'umls_match_tag_full': 'O',
+                  'umls_match_tag_prefix': 'O', 'umls_match_tag_acro': 'O'})
+
+config = Config(input_features=input_features, direct_features=direct_features,
+                tag_list=tag_list)
 
 config.conv_dim = [50,200]
 config.conv_window = [5,5]
 config.conv_dropout = [True, True]
+
+config.direct_window_size = 3
 
 config.l1_list = [f for f in
         ('word', 'lemma', 'normal', 'prefix', 'suffix', 'med_prefix')
@@ -45,11 +49,11 @@ config.dropout_keep_prob = 0.75
 
 config.learning_rate = 0.001
 
-config.gradient_clip = 50
-config.param_clip = 250
+config.gradient_clip = 50 #5
+config.param_clip = 250 #50
 
 config.num_epochs = 10
 config.patience_increase = 1.85
 
 config.optimizer = 'adam'
-config.batch_size = 25
+config.batch_size = 30

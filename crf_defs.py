@@ -64,6 +64,7 @@ def feature_layer(in_layer, config, params, reuse=False):
         param_vars = {}
         embeddings = []
         for i, (feat, dim) in enumerate(in_features.items()):
+            if not dim: continue # skip direct features
             if feat in param_dic: #TODO: needs to be updated
                 embeddings = \
                       tf.Variable(tf.convert_to_tensor(param_dic[feat],

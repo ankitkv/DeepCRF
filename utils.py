@@ -29,7 +29,7 @@ class Config:
                  nn_obj_weight=-1, dropout_keep_prob=0.5,
                  optimizer='adam', criterion='likelihood',
                  gradient_clip=1e0, param_clip=1e2, init_words=False,
-                 input_features={},
+                 input_features={}, direct_features={},
                  use_convo=True, conv_window=[5,5], conv_dropout=[True,True],
                  conv_dim=[200,200],
                  pot_size=1,
@@ -52,6 +52,9 @@ class Config:
         # input layer
         self.init_words = init_words
         self.input_features = input_features
+        self.direct_features = direct_features
+        for feat in direct_features:
+            self.input_features[feat] = 0
         self.features_dim = sum(input_features.values())
         # convolutional layer
         self.use_convo = use_convo
@@ -87,6 +90,18 @@ class Config:
         self.feature_maps = dict([(feat, {'lookup': {'_unk_': 0},
                                           'reverse': ['_unk_']})
                                   for feat in data[0][0]])
+        window = self.direct_window_size // 2
+        for sentence in data:
+            for i, token in enumerate(sentence):
+                for (feat, default) in self.direct_features.items():
+                    newls = []
+                    for j in range(-window, window+1):
+                        pos = i+j
+                        if pos < 0 or pos >= len(sentence):
+                            newls.append(str(default))
+                        else:
+                            newls.append(str(sentence[i][feat]))
+                    token[feat] = ''.join(newls)
         for sentence in data:
             for token in sentence:
                 for feat in data[0][0]:
