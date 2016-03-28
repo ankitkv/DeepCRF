@@ -173,7 +173,8 @@ def potentials_layer(in_layer, mask, config, params, reuse=False,
 
 
 # alternatively: unary + binary
-def binary_log_pots(in_layer, config, params, reuse=False, name='Binary'):
+def binary_log_pots(in_layer, input_ids, config, params, reuse=False,
+                    name='Binary'):
     input_size = int(in_layer.get_shape()[2])
     pot_shape = [config.n_tags] * 2
     out_shape = [config.batch_size, -1] + pot_shape
@@ -189,11 +190,24 @@ def binary_log_pots(in_layer, config, params, reuse=False, name='Binary'):
         b_pot_bin = tf.clip_by_norm(b_pot_bin, config.param_clip)
     flat_input = tf.reshape(in_layer, [-1, input_size])
     pre_scores = tf.matmul(flat_input, W_pot_bin) + b_pot_bin
-    bin_pots_layer = tf.reshape(pre_scores, out_shape)
+    feature_mappings = config.feature_maps
+    directs = []
+    for (idx,feat) in enumerate(config.direct_features):
+        i = idx + len(config.input_features) - len(config.direct_features)
+        shape = [len(feature_mappings[feat]['reverse']), config.n_tags ** 2]
+        initial = tf.truncated_normal(shape, stddev=0.01)
+        direct_matrix = tf.Variable(initial, name=feat + '_direct')
+        ids = tf.slice(input_ids, [0, 0, i], [-1, -1, 1])
+        directs.append(tf.squeeze(tf.nn.embedding_lookup(direct_matrix,
+                                  ids, name=feat + '_direct_lookup'),
+                       [2], name=feat + '_direct_squeeze'))
+    bin_pots_layer = tf.reshape(pre_scores, out_shape) + \
+                     tf.reshape(sum(directs), out_shape)
     return (bin_pots_layer, W_pot_bin, b_pot_bin)
 
 
-def unary_log_pots(in_layer, mask, config, params, reuse=False, name='Unary'):
+def unary_log_pots(in_layer, input_ids, mask, config, params, reuse=False,
+                   name='Unary'):
     input_size = int(in_layer.get_shape()[2])
     pot_shape = [config.n_tags]
     out_shape = [config.batch_size, -1] + pot_shape
@@ -209,7 +223,18 @@ def unary_log_pots(in_layer, mask, config, params, reuse=False, name='Unary'):
         b_pot_un = tf.clip_by_norm(b_pot_un, config.param_clip)
     flat_input = tf.reshape(in_layer, [-1, input_size])
     pre_scores = tf.matmul(flat_input, W_pot_un) + b_pot_un
-    un_pots_layer = tf.reshape(pre_scores, out_shape)
+    feature_mappings = config.feature_maps
+    directs = []
+    for (idx,feat) in enumerate(config.direct_features):
+        i = idx + len(config.input_features) - len(config.direct_features)
+        shape = [len(feature_mappings[feat]['reverse']), config.n_tags]
+        initial = tf.truncated_normal(shape, stddev=0.01)
+        direct_matrix = tf.Variable(initial, name=feat + '_direct')
+        ids = tf.slice(input_ids, [0, 0, i], [-1, -1, 1])
+        directs.append(tf.squeeze(tf.nn.embedding_lookup(direct_matrix,
+                                  ids, name=feat + '_direct_lookup'),
+                       [2], name=feat + '_direct_squeeze'))
+    un_pots_layer = tf.reshape(pre_scores, out_shape) + sum(directs)
     # define potentials for padding tokens
     shape_aux = 0 * mask + 1
     pad_pots = tf.pack([0 * shape_aux] + [-1e2 * shape_aux
@@ -401,12 +426,14 @@ class CRF:
                                                           config, params)
             ### CRF
             # potentials
-            (bin_pots, W_p_b, b_p_b) = binary_log_pots(out_layer, config,
+            (bin_pots, W_p_b, b_p_b) = binary_log_pots(out_layer,
+                                                       self.input_ids, config,
                                                        params, reuse=reuse)
             params.W_pot_bin = W_p_b
             params.b_pot_bin = b_p_b
-            (un_pots, W_p_u, b_p_u) = unary_log_pots(out_layer, self.mask,
-                                                   config, params, reuse=reuse)
+            (un_pots, W_p_u, b_p_u) = unary_log_pots(out_layer, self.input_ids,
+                                                     self.mask, config, params,
+                                                     reuse=reuse)
             self.unary_pots = un_pots
             self.binary_pots = bin_pots
             params.W_pot_un = W_p_u
