@@ -204,8 +204,11 @@ def binary_log_pots(in_layer, input_ids, config, params, reuse=False,
         directs.append(tf.squeeze(tf.nn.embedding_lookup(direct_matrix,
                                   ids, name=feat + '_bin_direct_lookup'),
                        [2], name=feat + '_bin_direct_squeeze'))
-    bin_pots_layer = tf.reshape(pre_scores, out_shape) + \
-                     tf.reshape(sum(directs), out_shape)
+    if directs:
+        bin_pots_layer = tf.reshape(pre_scores, out_shape) + \
+                         tf.reshape(sum(directs), out_shape)
+    else:
+        bin_pots_layer = tf.reshape(pre_scores, out_shape)
     return (bin_pots_layer, W_pot_bin, b_pot_bin, direct_mats)
 
 
