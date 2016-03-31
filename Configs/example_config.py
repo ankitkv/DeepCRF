@@ -13,7 +13,8 @@ dev_file = pjoin(data_dir, 'semeval_dev/crfpp_text_batch_1.txt')
 vecs_file = pjoin(git_dir, 'Data/crf_data/semeval_vecs.dat')
 
 vis_file = pjoin(git_dir, 'visual.pickle')
-model_file = pjoin(git_dir, 'recent.model')
+embeddings_file = pjoin(git_dir, 'embeddings.model')
+directs_file = pjoin(git_dir, 'directs.model')
 
 # feature names and tag list
 features = ['word', 'lemma', 'pos', 'normal', 'word_length',

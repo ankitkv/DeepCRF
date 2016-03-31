@@ -203,7 +203,7 @@ def visualize_embeddings(feature, n=50):
             emb_matrix = tf.Variable(initial, name=feat + '_embedding')
             param_vars[feat] = emb_matrix
         embeddings_saver = tf.train.Saver(param_vars)
-        embeddings_saver.restore(sess, model_file)
+        embeddings_saver.restore(sess, embeddings_file)
         embeddings = param_vars[feature_name].eval()
         target_index = feature_mappings[feature_name]['lookup'][feature_value]
         target_embedding = embeddings[target_index]
@@ -232,6 +232,7 @@ def visualize_embeddings(feature, n=50):
             for d, e, v in values[:n]:
                 print (str(d / maxnorm) + ':').ljust(10), v
             print
+        sess.close()
 
 
 def visualize_sparsity(feature_name, n=200):
@@ -251,7 +252,7 @@ def visualize_sparsity(feature_name, n=200):
             emb_matrix = tf.Variable(initial, name=feat + '_embedding')
             param_vars[feat] = emb_matrix
         embeddings_saver = tf.train.Saver(param_vars)
-        embeddings_saver.restore(sess, model_file)
+        embeddings_saver.restore(sess, embeddings_file)
         embeddings = param_vars[feature_name].eval()
         print
         print 'Non-zero embeddings: ' + str(sum(1 for emb in embeddings
@@ -265,6 +266,44 @@ def visualize_sparsity(feature_name, n=200):
         print
         plt.plot([np.linalg.norm(e) for e,v in values])
         plt.show()
+        sess.close()
+
+
+def visualize_directs(feature_name):
+    global visualization
+    feature_mappings = visualization['featmap']
+    if feature_name not in direct_features:
+        print >> sys.stderr, 'no direct feature:', feature_name + '.', \
+                             'choose one of:'
+        print >> sys.stderr, ' '.join(direct_features.keys())
+        return
+    with tf.device('/cpu:0'):
+        sess = tf.InteractiveSession()
+        directs_bin = collections.OrderedDict({})
+        for (idx,feat) in enumerate(config.direct_features):
+            i = idx + len(config.input_features) - len(config.direct_features)
+            shape = [len(feature_mappings[feat]['reverse']), config.n_tags ** 2]
+            initial = tf.zeros(shape)
+            direct_matrix = tf.Variable(initial, name=feat + '_bin_direct')
+            directs_bin[feat + '_bin_direct'] = direct_matrix
+        directs_un = collections.OrderedDict({})
+        for (idx,feat) in enumerate(config.direct_features):
+            i = idx + len(config.input_features) - len(config.direct_features)
+            shape = [len(feature_mappings[feat]['reverse']), config.n_tags]
+            initial = tf.zeros(shape)
+            direct_matrix = tf.Variable(initial, name=feat + '_un_direct')
+            directs_un[feat + '_un_direct'] = direct_matrix
+        directs_un.update(directs_bin)
+        directs_saver = tf.train.Saver(directs_un)
+        directs_saver.restore(sess, directs_file)
+        unary_matrix = directs_un[feature_name + '_un_direct'].eval()
+        binary_matrix = directs_bin[feature_name + '_bin_direct'].eval()
+        print
+        print unary_matrix
+        print
+        print binary_matrix
+        print
+        sess.close()
 
 
 if __name__ == '__main__':
@@ -293,6 +332,8 @@ if __name__ == '__main__':
                         help="feature name and feature value")
     parser.add_argument("-sparsity", "--sparsity", metavar="FEATURE_NAME",
                         help="sparsity in the embeddings")
+    parser.add_argument("-directs", "--directs", metavar="FEATURE_NAME",
+                        help="mapping matrix for upper-level feature")
     args = parser.parse_args()
     if args.config_file:
         config_file = os.path.abspath(args.config_file)
@@ -314,4 +355,6 @@ if __name__ == '__main__':
             visualize_embeddings(args.embed)
         if args.sparsity:
             visualize_sparsity(args.sparsity)
+        if args.directs:
+            visualize_directs(args.directs)
 

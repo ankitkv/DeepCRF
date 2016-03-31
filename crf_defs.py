@@ -2,6 +2,7 @@ import tensorflow as tf
 import tensorflow.python.platform
 from tensorflow.models.rnn import rnn
 from tensorflow.models.rnn import rnn_cell
+import collections
 
 from utils import *
 
@@ -192,18 +193,20 @@ def binary_log_pots(in_layer, input_ids, config, params, reuse=False,
     pre_scores = tf.matmul(flat_input, W_pot_bin) + b_pot_bin
     feature_mappings = config.feature_maps
     directs = []
+    direct_mats = collections.OrderedDict({})
     for (idx,feat) in enumerate(config.direct_features):
         i = idx + len(config.input_features) - len(config.direct_features)
         shape = [len(feature_mappings[feat]['reverse']), config.n_tags ** 2]
-        initial = tf.truncated_normal(shape, stddev=0.01)
-        direct_matrix = tf.Variable(initial, name=feat + '_direct')
+        initial = tf.truncated_normal(shape, stddev=1.0)
+        direct_matrix = tf.Variable(initial, name=feat + '_bin_direct')
+        direct_mats[feat + '_bin_direct'] = direct_matrix
         ids = tf.slice(input_ids, [0, 0, i], [-1, -1, 1])
         directs.append(tf.squeeze(tf.nn.embedding_lookup(direct_matrix,
-                                  ids, name=feat + '_direct_lookup'),
-                       [2], name=feat + '_direct_squeeze'))
+                                  ids, name=feat + '_bin_direct_lookup'),
+                       [2], name=feat + '_bin_direct_squeeze'))
     bin_pots_layer = tf.reshape(pre_scores, out_shape) + \
                      tf.reshape(sum(directs), out_shape)
-    return (bin_pots_layer, W_pot_bin, b_pot_bin)
+    return (bin_pots_layer, W_pot_bin, b_pot_bin, direct_mats)
 
 
 def unary_log_pots(in_layer, input_ids, mask, config, params, reuse=False,
@@ -225,15 +228,17 @@ def unary_log_pots(in_layer, input_ids, mask, config, params, reuse=False,
     pre_scores = tf.matmul(flat_input, W_pot_un) + b_pot_un
     feature_mappings = config.feature_maps
     directs = []
+    direct_mats = collections.OrderedDict({})
     for (idx,feat) in enumerate(config.direct_features):
         i = idx + len(config.input_features) - len(config.direct_features)
         shape = [len(feature_mappings[feat]['reverse']), config.n_tags]
-        initial = tf.truncated_normal(shape, stddev=0.01)
-        direct_matrix = tf.Variable(initial, name=feat + '_direct')
+        initial = tf.truncated_normal(shape, stddev=1.0)
+        direct_matrix = tf.Variable(initial, name=feat + '_un_direct')
+        direct_mats[feat + '_un_direct'] = direct_matrix
         ids = tf.slice(input_ids, [0, 0, i], [-1, -1, 1])
         directs.append(tf.squeeze(tf.nn.embedding_lookup(direct_matrix,
-                                  ids, name=feat + '_direct_lookup'),
-                       [2], name=feat + '_direct_squeeze'))
+                                  ids, name=feat + '_un_direct_lookup'),
+                       [2], name=feat + '_un_direct_squeeze'))
     un_pots_layer = tf.reshape(pre_scores, out_shape) + sum(directs)
     # define potentials for padding tokens
     shape_aux = 0 * mask + 1
@@ -245,7 +250,7 @@ def unary_log_pots(in_layer, input_ids, mask, config, params, reuse=False,
     mask_a = tf.tile(mask_a, [1, 1] + pot_shape)
     # combine
     un_pots_layer = (un_pots_layer * mask_a + (1 - mask_a) * pad_pots)
-    return (un_pots_layer, W_pot_un, b_pot_un)
+    return (un_pots_layer, W_pot_un, b_pot_un, direct_mats)
 
 
 def log_pots(un_pots_layer, bin_pots_layer, config, params,
@@ -426,18 +431,21 @@ class CRF:
                                                           config, params)
             ### CRF
             # potentials
-            (bin_pots, W_p_b, b_p_b) = binary_log_pots(out_layer,
+            (bin_pots, W_p_b, b_p_b, direct_bin) = binary_log_pots(out_layer,
                                                        self.input_ids, config,
                                                        params, reuse=reuse)
             params.W_pot_bin = W_p_b
             params.b_pot_bin = b_p_b
-            (un_pots, W_p_u, b_p_u) = unary_log_pots(out_layer, self.input_ids,
+            params.direct_bin = direct_bin
+            (un_pots, W_p_u, b_p_u, direct_un) = unary_log_pots(out_layer,
+                                                     self.input_ids,
                                                      self.mask, config, params,
                                                      reuse=reuse)
             self.unary_pots = un_pots
             self.binary_pots = bin_pots
             params.W_pot_un = W_p_u
             params.b_pot_un = b_p_u
+            params.direct_un = direct_un
             pots_layer = log_pots(un_pots, bin_pots, config, params)
             if config.verbose:
                 print('potentials layer done')
@@ -499,7 +507,7 @@ class CRF:
                                                       tf.trainable_variables())
                 grads_and_vars[k] = [(tf.clip_by_norm(g, config.gradient_clip),
                                                       v) \
-                                  if g and config.gradient_clip > 0 else (g, v)
+                                  if config.gradient_clip > 0 else (g, v)
                                   for g, v in uncapped_g_v]
             self.train_steps = {}
             for k, g_v in grads_and_vars.items():
@@ -512,6 +520,7 @@ class CRF:
         train_step = self.train_steps[config.criterion]
         # TODO: gradient clipping
         total_crit = 0.
+        total_l1 = 0.
         n_batches = len(data) / batch_size
         batch = Batch()
         for i in range(n_batches):
@@ -522,6 +531,7 @@ class CRF:
             train_step.run(feed_dict=f_dict)
             crit = criterion.eval(feed_dict=f_dict)
             total_crit += crit
+            total_l1 += self.l1_norm.eval(feed_dict=f_dict)
             if config.verbose and i % 50 == 0:
                 train_accuracy = self.accuracy.eval(feed_dict=f_dict)
                 print("step %d of %d, training accuracy %f, criterion %f,"\
@@ -529,7 +539,7 @@ class CRF:
                       (i, n_batches, train_accuracy, crit,
                        self.log_likelihood.eval(feed_dict=f_dict)))
         print 'total crit', total_crit / n_batches
-        return total_crit / n_batches
+        return (total_crit / n_batches, total_l1 / n_batches)
     
     def validate_accuracy(self, data, config):
         batch_size = config.batch_size

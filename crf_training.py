@@ -47,18 +47,22 @@ def main():
     trainf1_holder = tf.Variable(0.0, name='trainf1')
     devf1_holder = tf.Variable(0.0, name='devf1')
     testf1_holder = tf.Variable(0.0, name='testf1')
+    l1norm = tf.Variable(0.0, name='l1norm')
     tf.scalar_summary('trainf1', trainf1_holder)
     tf.scalar_summary('devf1', devf1_holder)
     tf.scalar_summary('testf1', testf1_holder)
+    tf.scalar_summary('l1norm', l1norm)
     try:
         shutil.rmtree(log_dir)
     except OSError:
         pass
     merged = tf.merge_all_summaries()
-    writer = tf.train.SummaryWriter(log_dir, sess.graph_def)
+    writer = tf.train.SummaryWriter(log_dir, sess.graph)
 
     sess.run(tf.initialize_all_variables())
     embeddings_saver = tf.train.Saver(params_crf.embeddings)
+    params_crf.direct_un.update(params_crf.direct_bin)
+    directs_saver = tf.train.Saver(params_crf.direct_un)
     # (accuracies, preds) = train_model(train_data, dev_data, crf, config,
     #                                                       params_crf, 'CRF')
 
@@ -75,7 +79,7 @@ def main():
         train_data_ready = prepare_data(train_data, config)
         dev_data_ready = prepare_data(dev_data, config)
         print 'training', i, '\t', str(datetime.now())
-        crf.train_epoch(train_data_ready, config, params_crf)
+        (_,l1) = crf.train_epoch(train_data_ready, config, params_crf)
         visualization['featmap'] = config.feature_maps
         print 'validating', i, '\t', str(datetime.now())
         train_acc = crf.validate_accuracy(train_data_ready, config)
@@ -100,7 +104,8 @@ def main():
         summary = sess.run(merged, feed_dict={
             trainf1_holder: train_f1,
             devf1_holder: f1,
-            testf1_holder: test_f1})
+            testf1_holder: test_f1,
+            l1norm: l1})
         writer.add_summary(summary, i)
 
         if f1 > best_f1:
@@ -119,8 +124,10 @@ def main():
             best_train_f1 = train_f1
             best_test_f1 = test_f1
             write_visualization(visualization)
-            embeddings_saver.save(sess, model_file)
-            print 'Wrote embeddings to', model_file
+            embeddings_saver.save(sess, embeddings_file)
+            print 'Wrote embeddings to', embeddings_file
+            directs_saver.save(sess, directs_file)
+            print 'Wrote directs to', directs_file
         print 'best dev F1 is:', best_f1
         print ' with train F1:', best_train_f1
         print '   and test F1:', best_test_f1
@@ -132,6 +139,7 @@ def main():
         i += 1
         sys.stdout.flush()
         sys.stderr.flush()
+    sess.close()
 
 
 if __name__ == "__main__":
