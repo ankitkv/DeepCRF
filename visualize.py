@@ -198,6 +198,7 @@ def visualize_embeddings(feature, n=50):
         sess = tf.InteractiveSession()
         param_vars = {}
         for i, (feat, dim) in enumerate(config.input_features.items()):
+            if not dim: continue
             shape = [len(feature_mappings[feat]['reverse']), dim]
             initial = tf.truncated_normal(shape, stddev=0.1)
             emb_matrix = tf.Variable(initial, name=feat + '_embedding')
@@ -247,6 +248,7 @@ def visualize_sparsity(feature_name, n=200):
         sess = tf.InteractiveSession()
         param_vars = {}
         for i, (feat, dim) in enumerate(config.input_features.items()):
+            if not dim: continue
             shape = [len(feature_mappings[feat]['reverse']), dim]
             initial = tf.truncated_normal(shape, stddev=0.1)
             emb_matrix = tf.Variable(initial, name=feat + '_embedding')

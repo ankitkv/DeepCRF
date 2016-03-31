@@ -2,7 +2,7 @@ import collections
 from os.path import join as pjoin
 
 # file locations
-git_dir = '/home/ankit/devel/DeepCRF'
+git_dir = ''
 
 data_dir = pjoin(git_dir, 'Data/crf_data/')
 
