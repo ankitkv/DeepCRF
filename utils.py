@@ -26,7 +26,7 @@ def linearize_indices(indices, dims):
 class Config:
     def __init__(self, batch_size=20, learning_rate=1e-2,
                  l1_reg=1e-2, l1_list=[],
-                 nn_obj_weight=-1, dropout_keep_prob=0.5,
+                 nn_obj_weight=-1, crf_obj_weight=1.0, dropout_keep_prob=0.5,
                  optimizer='adam', criterion='likelihood',
                  gradient_clip=1e0, param_clip=1e2, init_words=False,
                  input_features={}, direct_features={},
@@ -44,6 +44,7 @@ class Config:
         self.l1_list = l1_list
         self.dropout_keep_prob = dropout_keep_prob
         self.nn_obj_weight = nn_obj_weight  # for mixed training
+        self.crf_obj_weight = crf_obj_weight
         # optimization configuration
         self.optimizer = optimizer          # ['adam', 'adagrad']
         self.criterion = criterion          # ['likelihood', 'pseudo_ll']
@@ -315,8 +316,8 @@ def make_feed_crf(model, batch, keep_prob):
     return f_dict
 
 
-# tag a full dataset TODO: ensure compatibility with SequNN class
-def tag_dataset(pre_data, config, params, mod_type, model):
+# tag a full dataset
+def tag_dataset(pre_data, config, params, model):
     preds_layer_output = None
     batch_size = config.batch_size
     batch = Batch()
@@ -338,16 +339,17 @@ def tag_dataset(pre_data, config, params, mod_type, model):
         if i % 100 == 0 and config.verbose:
             print 'making features', i, 'of', len(data) / batch_size
         n_words = len(batch.features[0])
-        if mod_type == 'sequ_nn':
-            f_dict = {sequ_nn_tmp.input_ids: batch.features}
-            preds_layer_output = sequ_nn_tmp.preds_layer.eval(feed_dict=f_dict)
-        elif mod_type == 'CRF':
-            sess = tf.get_default_session()
-            f_dict = make_feed_crf(model, batch, 1.0)
-            preds_layer = tf.argmax(model.map_tagging, 2)
+        sess = tf.get_default_session()
+        f_dict = make_feed_crf(model, batch, 1.0)
+        preds_layer = tf.argmax(model.map_tagging, 2)
+        if config.crf_obj_weight > 0:
             preds_layer_output, un_pots_output, bin_pots_output = sess.run(
                             [preds_layer, model.unary_pots, model.binary_pots],
                             feed_dict=f_dict)
+        else:
+            preds_layer_output = sess.run(preds_layer, feed_dict=f_dict)
+            un_pots_output = [None] * len(list(preds_layer_output))
+            bin_pots_output = [None] * len(list(preds_layer_output))
         tmp_preds = [[(batch.tags[i][j], token_preds)
                       for j, token_preds in enumerate(sentence)
                             if 1 in batch.tag_windows_one_hot[i][j]]
@@ -379,7 +381,7 @@ def prepare_data(data, config):
     return data_ready
 
 
-def train_model(train_data, dev_data, model, config, params, mod_type):
+def train_model(train_data, dev_data, model, config, params):
     #~ train_data_32 = cut_and_pad(train_data, config)
     #~ dev_data_32 = cut_and_pad(dev_data, config)
     accuracies = []
@@ -393,7 +395,7 @@ def train_model(train_data, dev_data, model, config, params, mod_type):
         dev_acc = model.validate_accuracy(dev_data_ready, config)
         accuracies += [(train_acc, dev_acc)]
         if i % config.num_predict == config.num_predict - 1:
-            pred = tag_dataset(dev_data, config, params, mod_type, model)
+            pred = tag_dataset(dev_data, config, params, model)
             preds[i+1] = pred[0]
     return (accuracies, preds)
 

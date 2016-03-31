@@ -65,7 +65,7 @@ def main():
         params_crf.direct_un.update(params_crf.direct_bin)
         directs_saver = tf.train.Saver(params_crf.direct_un)
     # (accuracies, preds) = train_model(train_data, dev_data, crf, config,
-    #                                                       params_crf, 'CRF')
+    #                                                       params_crf)
 
     best_f1 = 0.0
     best_train_f1 = 0.0
@@ -87,17 +87,17 @@ def main():
         dev_acc = crf.validate_accuracy(dev_data_ready, config)
         print 'train_acc', train_acc, 'dev_acc', dev_acc
         print 'tagging', i, '\t', str(datetime.now())
-        preds = tag_dataset(train_data, config, params_crf, 'CRF', crf)
+        preds = tag_dataset(train_data, config, params_crf, crf)
         sentences = preds_to_sentences(preds, config)
         print 'train epoch', i, '\t', str(datetime.now())
         train_f1, visual = evaluate(sentences, 0.5)
         visualization['train'] = visual
-        preds = tag_dataset(dev_data, config, params_crf, 'CRF', crf)
+        preds = tag_dataset(dev_data, config, params_crf, crf)
         sentences = preds_to_sentences(preds, config)
         print 'dev epoch', i, '\t', str(datetime.now())
         f1, visual = evaluate(sentences, 0.5)
         visualization['dev'] = visual
-        preds = tag_dataset(test_data, config, params_crf, 'CRF', crf)
+        preds = tag_dataset(test_data, config, params_crf, crf)
         sentences = preds_to_sentences(preds, config)
         print 'test epoch', i, '\t', str(datetime.now())
         test_f1, visual = evaluate(sentences, 0.5)

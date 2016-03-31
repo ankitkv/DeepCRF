@@ -392,7 +392,8 @@ class CRF:
     def make(self, config, params, reuse=False, name='CRF'):
         with tf.variable_scope(name):
             self.l1_norm = tf.reduce_sum(tf.zeros([1]))
-            self.l1_direct_norm = tf.reduce_sum(tf.zeros([1]))
+            if config.crf_obj_weight > 0:
+                self.l1_direct_norm = tf.reduce_sum(tf.zeros([1]))
 
             ### EMBEDDING LAYER
             if reuse:
@@ -433,68 +434,74 @@ class CRF:
                 (cross_entropy, accu_nn) = optim_outputs(preds_layer,
                                                           self.nn_targets,
                                                           config, params)
+                self.accuracy = accu_nn
+                self.map_tagging = self.preds_layer
             ### CRF
-            # potentials
-            (bin_pots, W_p_b, b_p_b, direct_bin) = binary_log_pots(out_layer,
-                                                       self.input_ids, config,
-                                                       params, reuse=reuse)
-            params.W_pot_bin = W_p_b
-            params.b_pot_bin = b_p_b
-            params.direct_bin = direct_bin
-            (un_pots, W_p_u, b_p_u, direct_un) = unary_log_pots(out_layer,
-                                                     self.input_ids,
-                                                     self.mask, config, params,
-                                                     reuse=reuse)
-            self.unary_pots = un_pots
-            self.binary_pots = bin_pots
-            params.W_pot_un = W_p_u
-            params.b_pot_un = b_p_u
-            params.direct_un = direct_un
-            for param in params.direct_un.values():
-                self.l1_direct_norm += L1_norm(param)
-            for param in params.direct_bin.values():
-                self.l1_direct_norm += L1_norm(param)
-            pots_layer = log_pots(un_pots, bin_pots, config, params)
-            if config.verbose:
-                print('potentials layer done')
-            self.pots_layer = pots_layer
-            # log-likelihood, tensor to list
-            pots_list = tf.split(0, config.batch_size, self.pots_layer)
-            pots_list = [tf.squeeze(pots) for pots in pots_list]
-            tags_list = tf.split(0, config.batch_size, self.tags)
-            tags_list = [tf.squeeze(tags) for tags in tags_list]
-            args_list = zip(pots_list, tags_list)
-            # log-likelihood, dynamic programming
-            dynamic = [tf.user_ops.chain_sum_product(pots, tags)
-                       for pots, tags in args_list]
-            pre_crf_list = [(pots, tags, f_sp, b_sp, grads)
-                            for ((pots, tags), (f_sp, b_sp, grads))
-                            in zip(args_list, dynamic)]
-            crf_list = [tf.user_ops.chain_crf(pots, tags, f_sp, b_sp, grads)
-                        for (pots, tags, f_sp, b_sp, grads) in pre_crf_list]
-            # log-likelihood, compute
-            log_likelihoods = tf.pack([ll for (ll, marg) in crf_list])
-            log_likelihood = tf.reduce_sum(log_likelihoods)
-            self.log_likelihood = log_likelihood
-            self.marginals = tf.pack([marg for (ll, marg) in crf_list])
-            # map assignment and accuracy of map assignment
-            map_tagging = [tf.user_ops.chain_max_sum(pots, tags)
+            if config.crf_obj_weight > 0:
+                # potentials
+                (bin_pots, W_p_b, b_p_b, direct_bin) = binary_log_pots(
+                                                        out_layer,
+                                                        self.input_ids, config,
+                                                        params, reuse=reuse)
+                params.W_pot_bin = W_p_b
+                params.b_pot_bin = b_p_b
+                params.direct_bin = direct_bin
+                (un_pots, W_p_u, b_p_u, direct_un) = unary_log_pots(out_layer,
+                                                        self.input_ids,
+                                                        self.mask, config,
+                                                        params, reuse=reuse)
+                self.unary_pots = un_pots
+                self.binary_pots = bin_pots
+                params.W_pot_un = W_p_u
+                params.b_pot_un = b_p_u
+                params.direct_un = direct_un
+                for param in params.direct_un.values():
+                    self.l1_direct_norm += L1_norm(param)
+                for param in params.direct_bin.values():
+                    self.l1_direct_norm += L1_norm(param)
+                pots_layer = log_pots(un_pots, bin_pots, config, params)
+                if config.verbose:
+                    print('potentials layer done')
+                self.pots_layer = pots_layer
+                # log-likelihood, tensor to list
+                pots_list = tf.split(0, config.batch_size, self.pots_layer)
+                pots_list = [tf.squeeze(pots) for pots in pots_list]
+                tags_list = tf.split(0, config.batch_size, self.tags)
+                tags_list = [tf.squeeze(tags) for tags in tags_list]
+                args_list = zip(pots_list, tags_list)
+                # log-likelihood, dynamic programming
+                dynamic = [tf.user_ops.chain_sum_product(pots, tags)
                            for pots, tags in args_list]
-            map_tagging = tf.pack([tging for f_ms, b_ms, tging in map_tagging])
-            correct_pred = tf.equal(tf.argmax(map_tagging, 2),
-                                    tf.argmax(self.targets, 2))
-            correct_pred = tf.cast(correct_pred, "float")
-            accuracy = tf.reduce_sum(correct_pred * \
-                tf.reduce_sum(self.targets, 2)) / tf.reduce_sum(self.targets)
-            self.map_tagging = map_tagging
-            self.accuracy = accuracy
+                pre_crf_list = [(pots, tags, f_sp, b_sp, grads)
+                                for ((pots, tags), (f_sp, b_sp, grads))
+                                in zip(args_list, dynamic)]
+                crf_list = [tf.user_ops.chain_crf(pots, tags, f_sp,b_sp, grads)
+                            for (pots, tags, f_sp,b_sp, grads) in pre_crf_list]
+                # log-likelihood, compute
+                log_likelihoods = tf.pack([ll for (ll, marg) in crf_list])
+                log_likelihood = tf.reduce_sum(log_likelihoods)
+                self.log_likelihood = log_likelihood
+                self.marginals = tf.pack([marg for (ll, marg) in crf_list])
+                # map assignment and accuracy of map assignment
+                map_tagging = [tf.user_ops.chain_max_sum(pots, tags)
+                               for pots, tags in args_list]
+                map_tagging = tf.pack([tging
+                                       for f_ms, b_ms, tging in map_tagging])
+                correct_pred = tf.equal(tf.argmax(map_tagging, 2),
+                                        tf.argmax(self.targets, 2))
+                correct_pred = tf.cast(correct_pred, "float")
+                accuracy = tf.reduce_sum(correct_pred * \
+                    tf.reduce_sum(self.targets, 2))/tf.reduce_sum(self.targets)
+                self.map_tagging = map_tagging
+                self.accuracy = accuracy
             ### OPTIMIZATION
             # different criteria
             self.criteria = {}
-            self.criteria['likelihood'] = -self.log_likelihood
+            self.criteria['likelihood'] = config.l1_reg * self.l1_norm
             for k in self.criteria:
-                self.criteria[k] += config.l1_reg * self.l1_norm + \
-                                    config.l1_direct_reg * self.l1_direct_norm
+                if config.crf_obj_weight > 0:
+                    self.criteria[k] -= self.log_likelihood - \
+                                     config.l1_direct_reg * self.l1_direct_norm
                 if config.nn_obj_weight > 0:
                     self.criteria[k] -= (config.nn_obj_weight * cross_entropy)
             # corresponding training steps, gradient clipping
@@ -560,9 +567,10 @@ class CRF:
             batch.read(data, i * batch_size, config, fill=True)
             f_dict = make_feed_crf(self, batch, 1.0)
             dev_accuracy = self.accuracy.eval(feed_dict=f_dict)
-            ll = self.log_likelihood.eval(feed_dict=f_dict)
             total_accuracy += dev_accuracy
-            total_ll += ll
+            if config.crf_obj_weight > 0:
+                ll = self.log_likelihood.eval(feed_dict=f_dict)
+                total_ll += ll
             total += 1
             if i % 100 == 0 and config.verbose:
                 print("%d of %d: \t map acc: %f \t ll:  %f" % \
