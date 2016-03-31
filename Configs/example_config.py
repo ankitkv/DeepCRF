@@ -35,6 +35,9 @@ direct_features = collections.OrderedDict({'umls_match_tag_full': 'O',
 config = Config(input_features=input_features, direct_features=direct_features,
                 tag_list=tag_list)
 
+config.crf_obj_weight = 1.0
+config.nn_obj_weight = -1
+
 config.conv_dim = [50,200]
 config.conv_window = [5,5]
 config.conv_dropout = [True, True]
@@ -55,7 +58,7 @@ config.gradient_clip = 50 #5
 config.param_clip = 250 #50
 
 config.num_epochs = 10
-config.patience_increase = 1.85
+config.patience_increase = 2
 
 config.optimizer = 'adam'
 config.batch_size = 30

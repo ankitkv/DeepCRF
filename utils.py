@@ -35,7 +35,7 @@ class Config:
                  pot_size=1,
                  pred_window=1, tag_list=[],
                  verbose=False, num_epochs=10, num_predict=5,
-                 improvement_threshold=0.995, patience_increase=2.0):
+                 improvement_threshold=0.999, patience_increase=2.0):
         # optimization parameters
         self.batch_size = batch_size
         self.learning_rate = learning_rate
