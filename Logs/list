@@ -11,3 +11,5 @@ gslinf3: l1_reg = 1e-3                                  77.75
 
 noumls: no umls features                                75.42
 umlsonly: only umls features                            47.08
+
+direct_umls						77.47, 76.83
