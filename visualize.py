@@ -299,9 +299,34 @@ def visualize_directs(feature_name):
         unary_matrix = directs_un[feature_name + '_un_direct'].eval()
         binary_matrix = directs_bin[feature_name + '_bin_direct'].eval()
         print
-        print unary_matrix
+        print 'BINARY'
         print
-        print binary_matrix
+        print ''.ljust(10),
+        for tag1 in tag_list:
+            for tag2 in tag_list:
+                print bcolors.HEADER+(tag1+':'+tag2).ljust(10)+bcolors.ENDC,
+        print
+        print
+        for i,row in enumerate(binary_matrix):
+            print bcolors.OKBLUE+feature_mappings[feature_name]['reverse'][i]\
+                                                       .ljust(10)+bcolors.ENDC,
+            for e in row:
+                print ("% .4f"%e).ljust(10),
+            print
+            print
+        print
+        print 'UNARY'
+        print
+        print ''.ljust(10),
+        for tag in tag_list:
+            print bcolors.HEADER+('  '+tag).ljust(10)+bcolors.ENDC,
+        print
+        for i,row in enumerate(unary_matrix):
+            print bcolors.OKBLUE+feature_mappings[feature_name]['reverse'][i].\
+                                                        ljust(10)+bcolors.ENDC,
+            for e in row:
+                print ("% .4f"%e).ljust(10),
+            print
         print
         sess.close()
 

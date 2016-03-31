@@ -100,8 +100,13 @@ class Config:
                         if pos < 0 or pos >= len(sentence):
                             newls.append(str(default))
                         else:
-                            newls.append(str(sentence[i][feat]))
-                    token[feat] = ''.join(newls)
+                            newls.append(str(sentence[pos][feat]))
+                    token['tmp_' + feat] = ''.join(newls)
+        for sentence in data:
+            for token in sentence:
+                for feat in self.direct_features:
+                    del token[feat]
+                    token[feat] = token.pop('tmp_' + feat)
         for sentence in data:
             for token in sentence:
                 for feat in data[0][0]:
