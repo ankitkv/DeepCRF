@@ -45,6 +45,7 @@ config.l1_list = [f for f in
         ('word', 'lemma', 'normal', 'prefix', 'suffix', 'med_prefix')
     if f in input_features]
 config.l1_reg = 1e-2
+config.l1_direct_reg = 5e-3
 
 config.dropout_keep_prob = 0.75
 

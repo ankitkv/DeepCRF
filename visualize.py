@@ -269,7 +269,7 @@ def visualize_sparsity(feature_name, n=200):
         sess.close()
 
 
-def visualize_directs(feature_name):
+def visualize_directs(feature_name, thres=0.025):
     global visualization
     feature_mappings = visualization['featmap']
     if feature_name not in direct_features:
@@ -311,7 +311,12 @@ def visualize_directs(feature_name):
             print bcolors.OKBLUE+feature_mappings[feature_name]['reverse'][i]\
                                                        .ljust(10)+bcolors.ENDC,
             for e in row:
-                print ("% .4f"%e).ljust(10),
+                if e < -thres:
+                    print bcolors.FAIL+("% .4f"%e).ljust(10)+bcolors.ENDC,
+                elif e > thres:
+                    print bcolors.OKGREEN+("% .4f"%e).ljust(10)+bcolors.ENDC,
+                else:
+                    print ("% .4f"%e).ljust(10),
             print
             print
         print
@@ -325,7 +330,12 @@ def visualize_directs(feature_name):
             print bcolors.OKBLUE+feature_mappings[feature_name]['reverse'][i].\
                                                         ljust(10)+bcolors.ENDC,
             for e in row:
-                print ("% .4f"%e).ljust(10),
+                if e < -thres:
+                    print bcolors.FAIL+("% .4f"%e).ljust(10)+bcolors.ENDC,
+                elif e > thres:
+                    print bcolors.OKGREEN+("% .4f"%e).ljust(10)+bcolors.ENDC,
+                else:
+                    print ("% .4f"%e).ljust(10),
             print
         print
         sess.close()

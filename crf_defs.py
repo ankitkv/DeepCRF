@@ -197,7 +197,7 @@ def binary_log_pots(in_layer, input_ids, config, params, reuse=False,
     for (idx,feat) in enumerate(config.direct_features):
         i = idx + len(config.input_features) - len(config.direct_features)
         shape = [len(feature_mappings[feat]['reverse']), config.n_tags ** 2]
-        initial = tf.truncated_normal(shape, stddev=1.0)
+        initial = tf.truncated_normal(shape, stddev=0.1)
         direct_matrix = tf.Variable(initial, name=feat + '_bin_direct')
         direct_mats[feat + '_bin_direct'] = direct_matrix
         ids = tf.slice(input_ids, [0, 0, i], [-1, -1, 1])
@@ -232,7 +232,7 @@ def unary_log_pots(in_layer, input_ids, mask, config, params, reuse=False,
     for (idx,feat) in enumerate(config.direct_features):
         i = idx + len(config.input_features) - len(config.direct_features)
         shape = [len(feature_mappings[feat]['reverse']), config.n_tags]
-        initial = tf.truncated_normal(shape, stddev=1.0)
+        initial = tf.truncated_normal(shape, stddev=0.1)
         direct_matrix = tf.Variable(initial, name=feat + '_un_direct')
         direct_mats[feat + '_un_direct'] = direct_matrix
         ids = tf.slice(input_ids, [0, 0, i], [-1, -1, 1])
@@ -389,6 +389,7 @@ class CRF:
     def make(self, config, params, reuse=False, name='CRF'):
         with tf.variable_scope(name):
             self.l1_norm = tf.reduce_sum(tf.zeros([1]))
+            self.l1_direct_norm = tf.reduce_sum(tf.zeros([1]))
 
             ### EMBEDDING LAYER
             if reuse:
@@ -446,6 +447,10 @@ class CRF:
             params.W_pot_un = W_p_u
             params.b_pot_un = b_p_u
             params.direct_un = direct_un
+            for param in params.direct_un.values():
+                self.l1_direct_norm += L1_norm(param)
+            for param in params.direct_bin.values():
+                self.l1_direct_norm += L1_norm(param)
             pots_layer = log_pots(un_pots, bin_pots, config, params)
             if config.verbose:
                 print('potentials layer done')
@@ -485,7 +490,8 @@ class CRF:
             self.criteria = {}
             self.criteria['likelihood'] = -self.log_likelihood
             for k in self.criteria:
-                self.criteria[k] += config.l1_reg * self.l1_norm
+                self.criteria[k] += config.l1_reg * self.l1_norm + \
+                                    config.l1_direct_reg * self.l1_direct_norm
                 if config.nn_obj_weight > 0:
                     self.criteria[k] -= (config.nn_obj_weight * cross_entropy)
             # corresponding training steps, gradient clipping

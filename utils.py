@@ -292,6 +292,9 @@ def L1L2_norm(tensor):
 def L1Linf_norm(tensor):
     return tf.reduce_sum(tf.reduce_max(tf.abs(tensor), 1))
 
+def L1_norm(tensor):
+    return tf.reduce_sum(tf.abs(tensor))
+
 def L2_norm(tensor):
     return tf.sqrt(tf.reduce_sum(tf.mul(tensor, tensor)))
 
