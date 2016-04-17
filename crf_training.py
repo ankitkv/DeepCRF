@@ -61,9 +61,10 @@ def main():
 
     sess.run(tf.initialize_all_variables())
     embeddings_saver = tf.train.Saver(params_crf.embeddings)
-    if config.direct_features:
-        params_crf.direct_un.update(params_crf.direct_bin)
-        directs_saver = tf.train.Saver(params_crf.direct_un)
+    #if config.direct_features: TODO: uncomment!
+    #    params_crf.direct_un.update(params_crf.direct_bin)
+    #    directs_saver = tf.train.Saver(params_crf.direct_un)
+
     # (accuracies, preds) = train_model(train_data, dev_data, crf, config,
     #                                                       params_crf)
 
@@ -127,9 +128,9 @@ def main():
             write_visualization(visualization)
             embeddings_saver.save(sess, embeddings_file)
             print 'Wrote embeddings to', embeddings_file
-            if config.direct_features:
-                directs_saver.save(sess, directs_file)
-                print 'Wrote directs to', directs_file
+            #if config.direct_features: TODO: uncomment!
+            #    directs_saver.save(sess, directs_file)
+            #    print 'Wrote directs to', directs_file
         print 'best dev F1 is:', best_f1
         print ' with train F1:', best_train_f1
         print '   and test F1:', best_test_f1

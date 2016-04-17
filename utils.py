@@ -73,7 +73,7 @@ class Config:
         tags_ct = 0
         for element in itertools.product(tag_list, repeat=pred_window):
             tag_st = '_'.join(element)
-            mid = element[pred_window / 2]
+            mid = element[pred_window // 2]
             if mid == '<P>':
                 self.label_dict[tag_st] = (-1, tag_list.index(mid))
             else:
@@ -99,9 +99,9 @@ class Config:
                     for j in range(-window, window+1):
                         pos = i+j
                         if pos < 0 or pos >= len(sentence):
-                            newls.append(str(default))
+                            newls.append(str(default).strip())
                         else:
-                            newls.append(str(sentence[pos][feat]))
+                            newls.append(str(sentence[pos][feat]).strip())
                     token['tmp_' + feat] = ''.join(newls)
         for sentence in data:
             for token in sentence:
@@ -233,7 +233,7 @@ class Parameters:
 
 
 def aggregate_labels(sentence, config):
-    pre_tags = ['<P>'] * (config.pred_window / 2)
+    pre_tags = ['<P>'] * (config.pred_window // 2)
     sentence_ext = pre_tags + [token['label']
                                for token in sentence] + pre_tags
     for i, token in enumerate(sentence):

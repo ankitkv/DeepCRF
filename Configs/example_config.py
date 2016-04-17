@@ -33,10 +33,10 @@ direct_features = collections.OrderedDict({'umls_match_tag_full': 'O',
                   'umls_match_tag_prefix': 'O', 'umls_match_tag_acro': 'O'})
 
 config = Config(input_features=input_features, direct_features=direct_features,
-                tag_list=tag_list)
+                tag_list=tag_list, pred_window=3)
 
-config.crf_obj_weight = 1.0
-config.nn_obj_weight = -1
+config.crf_obj_weight = -1
+config.nn_obj_weight = 1.0
 
 config.conv_dim = [50,200]
 config.conv_window = [5,5]
