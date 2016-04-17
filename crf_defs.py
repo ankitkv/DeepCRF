@@ -177,6 +177,7 @@ def potentials_layer(in_layer, mask, config, params, reuse=False,
 def binary_log_pots(in_layer, input_ids, config, params, reuse=False,
                     name='Binary'):
     input_size = int(in_layer.get_shape()[2])
+    feature_mappings = config.feature_maps
     pot_shape = [config.n_tags] * 2
     out_shape = [config.batch_size, -1] + pot_shape
     pot_card = config.n_tags ** 2
@@ -191,7 +192,6 @@ def binary_log_pots(in_layer, input_ids, config, params, reuse=False,
         b_pot_bin = tf.clip_by_norm(b_pot_bin, config.param_clip)
     flat_input = tf.reshape(in_layer, [-1, input_size])
     pre_scores = tf.matmul(flat_input, W_pot_bin) + b_pot_bin
-    feature_mappings = config.feature_maps
     directs = []
     direct_mats = collections.OrderedDict({})
     for (idx,feat) in enumerate(config.direct_features):
@@ -215,6 +215,7 @@ def binary_log_pots(in_layer, input_ids, config, params, reuse=False,
 def unary_log_pots(in_layer, input_ids, mask, config, params, reuse=False,
                    name='Unary'):
     input_size = int(in_layer.get_shape()[2])
+    feature_mappings = config.feature_maps
     pot_shape = [config.n_tags]
     out_shape = [config.batch_size, -1] + pot_shape
     pot_card = config.n_tags
@@ -229,7 +230,6 @@ def unary_log_pots(in_layer, input_ids, mask, config, params, reuse=False,
         b_pot_un = tf.clip_by_norm(b_pot_un, config.param_clip)
     flat_input = tf.reshape(in_layer, [-1, input_size])
     pre_scores = tf.matmul(flat_input, W_pot_un) + b_pot_un
-    feature_mappings = config.feature_maps
     directs = []
     direct_mats = collections.OrderedDict({})
     for (idx,feat) in enumerate(config.direct_features):
@@ -270,10 +270,12 @@ def log_pots(un_pots_layer, bin_pots_layer, config, params,
 
 
 # Takes a representation as input and returns predictions of tag windows
-def predict_layer(in_layer, config, params, reuse=False, name='Predict'):
+def predict_layer(in_layer, input_ids, config, params, reuse=False,
+                  direct=False, name='Predict'):
     n_outcomes = config.n_outcomes
     batch_size = config.batch_size
     input_size = int(in_layer.get_shape()[2])
+    feature_mappings = config.feature_maps
     if reuse:
         tf.get_variable_scope().reuse_variables()
         W_pred = params.W_pred
@@ -283,10 +285,23 @@ def predict_layer(in_layer, config, params, reuse=False, name='Predict'):
         b_pred = bias_variable([n_outcomes], name=name)
         W_pred = tf.clip_by_norm(W_pred, config.param_clip)
         b_pred = tf.clip_by_norm(b_pred, config.param_clip)
+    directs = []
+    direct_mats = collections.OrderedDict({})
+    for (idx,feat) in enumerate(config.direct_features):
+        i = idx + len(config.input_features) - len(config.direct_features)
+        shape = [len(feature_mappings[feat]['reverse']), config.n_outcomes]
+        initial = tf.truncated_normal(shape, stddev=0.1)
+        direct_matrix = tf.Variable(initial, name=feat + '_un_direct')
+        direct_mats[feat + '_un_direct'] = direct_matrix
+        ids = tf.slice(input_ids, [0, 0, i], [-1, -1, 1])
+        directs.append(tf.squeeze(tf.nn.embedding_lookup(direct_matrix,
+                                  ids, name=feat + '_un_direct_lookup'), [2],
+                                  name=feat + '_un_direct_squeeze'))
     flat_input = tf.reshape(in_layer, [-1, input_size])
-    pre_scores = tf.nn.softmax(tf.matmul(flat_input, W_pred) + b_pred)
+    pre_scores = tf.nn.softmax(tf.matmul(flat_input, W_pred) + b_pred + \
+                               tf.reshape(sum(directs), [-1, n_outcomes]))
     preds_layer = tf.reshape(pre_scores,[batch_size, -1, config.n_tag_windows])
-    return (preds_layer, W_pred, b_pred)
+    return (preds_layer, W_pred, b_pred, direct_mats)
 
 
 # Takes tag window predictions, and returns cross-entropy and accuracy
@@ -426,8 +441,20 @@ class CRF:
             self.out_layer = out_layer
             ### SEQU-NN
             if config.nn_obj_weight > 0:
-                (preds_layer, W_pred, b_pred) = predict_layer(out_layer,
-                                                   config, params, reuse=reuse)
+                if config.crf_obj_weight > 0:
+                    (preds_layer, W_pred, b_pred, _) = predict_layer(out_layer,
+                                                                self.input_ids,
+                                                                config, params,
+                                                                reuse=reuse,
+                                                                direct=False)
+                else:
+                    (preds_layer, W_pred, b_pred, direct_un) = predict_layer(
+                                                                out_layer,
+                                                                self.input_ids,
+                                                                config, params,
+                                                                reuse=reuse,
+                                                                direct=True)
+                    params.direct_un = direct_un
                 params.W_pred = W_pred
                 params.b_pred = b_pred
                 self.preds_layer = preds_layer

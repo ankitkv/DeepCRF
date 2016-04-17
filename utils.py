@@ -341,7 +341,7 @@ def tag_dataset(pre_data, config, params, model):
         n_words = len(batch.features[0])
         sess = tf.get_default_session()
         f_dict = make_feed_crf(model, batch, 1.0)
-        preds_layer = tf.argmax(model.map_tagging, 2)
+        preds_layer = tf.argmax(model.map_tagging, 2) # TODO don't do an argmax, do Viterbi.
         if config.crf_obj_weight > 0:
             preds_layer_output, un_pots_output, bin_pots_output = sess.run(
                             [preds_layer, model.unary_pots, model.binary_pots],
