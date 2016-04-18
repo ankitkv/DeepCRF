@@ -71,6 +71,7 @@ class Config:
         self.tag_list = tag_list
         self.label_dict = {}
         tags_ct = 0
+        self.label_rdict = []
         for element in itertools.product(tag_list, repeat=pred_window):
             tag_st = '_'.join(element)
             mid = element[pred_window // 2]
@@ -78,6 +79,7 @@ class Config:
                 self.label_dict[tag_st] = (-1, tag_list.index(mid))
             else:
                 self.label_dict[tag_st] = (tags_ct, tag_list.index(mid))
+            self.label_rdict.append(element)
             tags_ct += 1
         self.n_outcomes = tags_ct
         # misc parameters
@@ -316,6 +318,22 @@ def make_feed_crf(model, batch, keep_prob):
     return f_dict
 
 
+def best_tagging(config, scores):
+    tag_dict = {tag: idx for idx, tag in enumerate(config.tag_list)}
+    tagged = []
+    for sentence in scores:
+        wordlist = []
+        for word in sentence:
+            probs = {}
+            for i, prob in enumerate(word):
+                probs[config.label_rdict[i]] = prob
+            wordlist.append(probs)
+        tagged.append(wordlist)
+    for sentence in tagged:
+        pass  # TODO
+    return scores  # TODO
+
+
 # tag a full dataset
 def tag_dataset(pre_data, config, params, model):
     preds_layer_output = None
@@ -341,13 +359,14 @@ def tag_dataset(pre_data, config, params, model):
         n_words = len(batch.features[0])
         sess = tf.get_default_session()
         f_dict = make_feed_crf(model, batch, 1.0)
-        preds_layer = tf.argmax(model.map_tagging, 2) # TODO don't do an argmax, do Viterbi.
         if config.crf_obj_weight > 0:
+            preds_layer = tf.argmax(model.map_tagging, 2)
             preds_layer_output, un_pots_output, bin_pots_output = sess.run(
                             [preds_layer, model.unary_pots, model.binary_pots],
                             feed_dict=f_dict)
         else:
-            preds_layer_output = sess.run(preds_layer, feed_dict=f_dict)
+            scores = sess.run(model.map_tagging, feed_dict=f_dict)
+            preds_layer_output = best_tagging(config, scores)
             un_pots_output = [None] * len(list(preds_layer_output))
             bin_pots_output = [None] * len(list(preds_layer_output))
         tmp_preds = [[(batch.tags[i][j], token_preds)
