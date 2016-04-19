@@ -337,8 +337,8 @@ def best_sentence_tagging(T, rev_tags, sentence):
     for i in range(1, len(sentence)):
         for j in range(len(T)):
             for k in range(len(T)):
-                prob = (bigrams_right[i-1][(k,j)] + bigrams_left[i][(k,j)]) /\
-                       (2.0 * unigrams[i-1][k])
+                # FIXME: consider both i-1 and i?
+                prob = bigrams_right[i-1][(k,j)] / unigrams[i-1][k]
                 if V[i-1][k][0] * prob > V[i][j][0]:
                     V[i][j] = (V[i-1][k][0] * prob, k)
     ret = [0 for w in sentence]
@@ -349,10 +349,8 @@ def best_sentence_tagging(T, rev_tags, sentence):
 
 
 def best_tagging(config, scores):
-    if config.pred_window == 1:
-        return np.argmax(scores, 2)
-    elif config.pred_window == 3:
-        rev_tags = {tag: idx for idx, tag in enumerate(config.tag_list)}
+    rev_tags = {tag: idx for idx, tag in enumerate(config.tag_list)}
+    if config.pred_window == 3:
         tagged = []
         for sentence in scores:
             wordlist = []
@@ -366,8 +364,12 @@ def best_tagging(config, scores):
         for sent in tagged:
             ret.append(best_sentence_tagging(config.tag_list, rev_tags, sent))
         return np.array(ret)
-    else:
-        return scores  # FIXME this only works for pred_window 1,3
+    else:  # TODO handle cases other than pred_window=3
+        argmax = np.argmax(scores, 2)
+        for sent in argmax:
+            for i,w in enumerate(sent):
+                sent[i]=rev_tags[config.label_rdict[w][config.pred_window//2]]
+        return argmax
 
 
 # tag a full dataset
