@@ -71,15 +71,25 @@ class Config:
         self.tag_list = tag_list
         self.label_dict = {}
         tags_ct = 0
-        self.label_rdict = []
+        self.left_tag = []
+        self.mid_tag = []
+        self.right_tag = []
+        rev_tags = {t: idx for idx, t in enumerate(tag_list)}
         for element in itertools.product(tag_list, repeat=pred_window):
             tag_st = '_'.join(element)
+            left = element[0]
+            left_index = rev_tags[left]
             mid = element[pred_window // 2]
+            mid_index = rev_tags[mid]
+            right = element[-1]
+            right_index = rev_tags[right]
             if mid == '<P>':
-                self.label_dict[tag_st] = (-1, tag_list.index(mid))
+                self.label_dict[tag_st] = (-1, mid_index)
             else:
-                self.label_dict[tag_st] = (tags_ct, tag_list.index(mid))
-            self.label_rdict.append(element)
+                self.label_dict[tag_st] = (tags_ct, mid_index)
+            self.left_tag.append(left_index)
+            self.mid_tag.append(mid_index)
+            self.right_tag.append(right_index)
             tags_ct += 1
         self.n_outcomes = tags_ct
         # misc parameters
@@ -318,57 +328,47 @@ def make_feed_crf(model, batch, keep_prob):
     return f_dict
 
 
-def best_sentence_tagging(T, rev_tags, sentence):
-    unigrams = [[0.0 for t in T] for w in sentence]
-    #bigrams_left = [{k: 0.0 for k in itertools.product(range(len(T)),
-    #                            repeat=2)}
-    #                for w in sentence]
-    bigrams_right = [{k: 0.0 for k in itertools.product(range(len(T)),
-                                 repeat=2)}
-                     for w in sentence]
+def best_sentence_tagging(T, mid_tag, right_tag, sentence):
+    words = sentence.shape[0]
+    states = np.zeros((words, T), dtype=np.int)
+    scores = np.zeros((words, T))
+    unigrams = np.zeros((words, T))
+    bigrams = np.zeros((words, T**2))
     for i,w in enumerate(sentence):
-        for tags,prob in w.items():
-            unigrams[i][rev_tags[tags[1]]] += prob
-            #bigrams_left[i][(rev_tags[tags[0]], rev_tags[tags[1]])] += prob
-            bigrams_right[i][(rev_tags[tags[1]], rev_tags[tags[2]])] += prob
-    V = [[(0.0,0) for t in T] for w in sentence]
-    for i in range(len(T)):
-        V[0][i] = (unigrams[0][i],-1)
-    for i in range(1, len(sentence)):
-        for j in range(len(T)):
-            for k in range(len(T)):
-                # FIXME: consider both i-1 and i?
-                prob = bigrams_right[i-1][(k,j)] / unigrams[i-1][k]
-                if V[i-1][k][0] * prob > V[i][j][0]:
-                    V[i][j] = (V[i-1][k][0] * prob, k)
-    ret = [0 for w in sentence]
-    ret[-1] = max(V[-1], key=lambda x:x[0])[1]
-    for i in range(len(ret)-2, -1, -1):
-        ret[i] = V[i+1][ret[i+1]][1]
-    return ret
+        for tags,prob in enumerate(w):
+            unigrams[i][mid_tag[tags]] += prob
+            bigrams[i][(mid_tag[tags] * T) + right_tag[tags]] += prob
+    unigrams = np.log(np.maximum(unigrams, 1e-15))
+    bigrams = np.log(np.maximum(bigrams, 1e-15))
+    scores[0] = unigrams[0]
+    for t, word in enumerate(sentence[1:]):
+        mat = np.zeros((T, T))
+        for i in range(T):
+            for j in range(T):
+                mat[i, j] = \
+                        scores[t][i] + bigrams[t][(i * T) + j] - unigrams[t][i]
+        states[t+1] = np.argmax(mat, 0)
+        scores[t+1] = np.max(mat, 0)
+    sol = np.zeros(words, dtype=np.int)
+    sol[-1] = np.argmax(scores[-1])
+    for t in range(words - 1, 0, -1):
+        sol[t-1] = states[t, sol[t]]
+    return sol
 
 
 def best_tagging(config, scores):
-    rev_tags = {tag: idx for idx, tag in enumerate(config.tag_list)}
     if config.pred_window == 3:
-        tagged = []
-        for sentence in scores:
-            wordlist = []
-            for word in sentence:
-                probs = {}
-                for i, prob in enumerate(word):
-                    probs[config.label_rdict[i]] = prob
-                wordlist.append(probs)
-            tagged.append(wordlist)
-        ret = []
-        for sent in tagged:
-            ret.append(best_sentence_tagging(config.tag_list, rev_tags, sent))
-        return np.array(ret)
+        ret = np.zeros((scores.shape[0], scores.shape[1]), dtype=np.int)
+        for i,sentence in enumerate(scores):
+            ret[i,:] = best_sentence_tagging(len(config.tag_list),
+                                             config.mid_tag,
+                                             config.right_tag, sentence)
+        return ret
     else:  # TODO handle cases other than pred_window=3
         argmax = np.argmax(scores, 2)
         for sent in argmax:
             for i,w in enumerate(sent):
-                sent[i]=rev_tags[config.label_rdict[w][config.pred_window//2]]
+                sent[i] = config.mid_tag[w]
         return argmax
 
 
