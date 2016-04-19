@@ -31,10 +31,9 @@ def main():
     # load the data
     train_data, dev_data = read_data(train_file, features, config, 11000)
     test_data = read_data(dev_file, features, config)
-
-    train_data = train_data[:50] # TODO remove
-    dev_data = dev_data[:20]     # TODO remove
-    test_data = test_data[:20]   # TODO remove
+    #train_data = train_data[:50]
+    #dev_data = dev_data[:20]
+    #test_data = test_data[:20]
 
     config.make_mappings(train_data + dev_data + test_data)
     # initialize the parameters

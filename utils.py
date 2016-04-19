@@ -318,20 +318,56 @@ def make_feed_crf(model, batch, keep_prob):
     return f_dict
 
 
+def best_sentence_tagging(T, rev_tags, sentence):
+    unigrams = [[0.0 for t in T] for w in sentence]
+    bigrams_left = [{k: 0.0 for k in itertools.product(range(len(T)),
+                                repeat=2)}
+                    for w in sentence]
+    bigrams_right = [{k: 0.0 for k in itertools.product(range(len(T)),
+                                 repeat=2)}
+                     for w in sentence]
+    for i,w in enumerate(sentence):
+        for tags,prob in w.items():
+            unigrams[i][rev_tags[tags[1]]] += prob
+            bigrams_left[i][(rev_tags[tags[0]], rev_tags[tags[1]])] += prob
+            bigrams_right[i][(rev_tags[tags[1]], rev_tags[tags[2]])] += prob
+    V = [[(0.0,0.0) for t in T] for w in sentence]
+    for i in range(len(T)):
+        V[0][i] = (unigrams[0][i],-1)
+    for i in range(1, len(sentence)):
+        for j in range(len(T)):
+            for k in range(len(T)):
+                prob = (bigrams_right[i-1][(k,j)] + bigrams_left[i][(k,j)]) /\
+                       (2.0 * unigrams[i-1][k])
+                if V[i-1][k][0] * prob > V[i][j][0]:
+                    V[i][j] = (V[i-1][k][0] * prob, k)
+    ret = [0 for w in sentence]
+    ret[-1] = max(V[-1], key=lambda x:x[0])[1]
+    for i in range(len(ret)-2, -1, -1):
+        ret[i] = V[i+1][ret[i+1]][1]
+    return ret
+
+
 def best_tagging(config, scores):
-    tag_dict = {tag: idx for idx, tag in enumerate(config.tag_list)}
-    tagged = []
-    for sentence in scores:
-        wordlist = []
-        for word in sentence:
-            probs = {}
-            for i, prob in enumerate(word):
-                probs[config.label_rdict[i]] = prob
-            wordlist.append(probs)
-        tagged.append(wordlist)
-    for sentence in tagged:
-        pass  # TODO
-    return scores  # TODO
+    if config.pred_window == 1:
+        return np.argmax(scores, 2)
+    elif config.pred_window == 3:
+        rev_tags = {tag: idx for idx, tag in enumerate(config.tag_list)}
+        tagged = []
+        for sentence in scores:
+            wordlist = []
+            for word in sentence:
+                probs = {}
+                for i, prob in enumerate(word):
+                    probs[config.label_rdict[i]] = prob
+                wordlist.append(probs)
+            tagged.append(wordlist)
+        ret = []
+        for sent in tagged:
+            ret.append(best_sentence_tagging(config.tag_list, rev_tags, sent))
+        return np.array(ret)
+    else:
+        return scores  # FIXME this only works for pred_window 1,3
 
 
 # tag a full dataset
