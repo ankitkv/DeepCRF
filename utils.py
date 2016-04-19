@@ -320,7 +320,7 @@ def make_feed_crf(model, batch, keep_prob):
 
 def best_sentence_tagging(T, rev_tags, sentence):
     unigrams = [[0.0 for t in T] for w in sentence]
-    bigrams_left = [{k: 0.0 for k in itertools.product(range(len(T)),
+    #bigrams_left = [{k: 0.0 for k in itertools.product(range(len(T)),
                                 repeat=2)}
                     for w in sentence]
     bigrams_right = [{k: 0.0 for k in itertools.product(range(len(T)),
@@ -329,9 +329,9 @@ def best_sentence_tagging(T, rev_tags, sentence):
     for i,w in enumerate(sentence):
         for tags,prob in w.items():
             unigrams[i][rev_tags[tags[1]]] += prob
-            bigrams_left[i][(rev_tags[tags[0]], rev_tags[tags[1]])] += prob
+            #bigrams_left[i][(rev_tags[tags[0]], rev_tags[tags[1]])] += prob
             bigrams_right[i][(rev_tags[tags[1]], rev_tags[tags[2]])] += prob
-    V = [[(0.0,0.0) for t in T] for w in sentence]
+    V = [[(0.0,0) for t in T] for w in sentence]
     for i in range(len(T)):
         V[0][i] = (unigrams[0][i],-1)
     for i in range(1, len(sentence)):

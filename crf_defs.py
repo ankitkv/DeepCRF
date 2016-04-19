@@ -309,7 +309,7 @@ def optim_outputs(outcome, targets, config, params):
     batch_size = int(outcome.get_shape()[0])
     n_outputs = int(outcome.get_shape()[2])
     # We are currently using cross entropy as criterion
-    cross_entropy = tf.reduce_sum(targets * tf.log(outcome))
+    cross_entropy = tf.reduce_sum(targets * tf.log(tf.maximum(outcome, 1e-15)))
     # We also compute the per-tag accuracy
     correct_prediction = tf.equal(tf.argmax(outcome, 2), tf.argmax(targets, 2))
     accuracy = tf.reduce_sum(tf.cast(correct_prediction,
