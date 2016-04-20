@@ -66,6 +66,8 @@ class Config:
         self.pot_size = pot_size
         self.n_tags = len(tag_list)
         # output layer
+        if crf_obj_weight > 0:
+            pred_window = 1
         self.pred_window = pred_window
         self.n_tag_windows = self.n_tags ** pred_window
         self.tag_list = tag_list

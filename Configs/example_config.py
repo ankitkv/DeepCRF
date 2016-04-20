@@ -25,9 +25,9 @@ features = ['word', 'lemma', 'pos', 'normal', 'word_length',
 
 tag_list = ['<P>', 'B', 'Bp', 'I', 'Ip', 'In', 'ID', 'O', 'OD']
 
-input_features = collections.OrderedDict({'pos': 10,
-                 'normal': 20, 'prefix': 15, 'suffix': 15,
-                 'all_caps': 1, 'capitalized': 1, 'med_prefix': 15})
+input_features = collections.OrderedDict({'pos': 15,
+                 'normal': 30, 'prefix': 20, 'suffix': 20,
+                 'all_caps': 1, 'capitalized': 1, 'med_prefix': 20})
 
 direct_features = collections.OrderedDict({'umls_match_tag_full': 'O',
                   'umls_match_tag_prefix': 'O', 'umls_match_tag_acro': 'O'})
@@ -35,12 +35,12 @@ direct_features = collections.OrderedDict({'umls_match_tag_full': 'O',
 config = Config(input_features=input_features, direct_features=direct_features,
                 tag_list=tag_list, pred_window=3)
 
-config.crf_obj_weight = -1
+config.crf_obj_weight = 1.0
 config.nn_obj_weight = 1.0
 
-config.conv_dim = [50,200]
-config.conv_window = [5,5]
-config.conv_dropout = [True, True]
+config.conv_dim = [80,400,900]
+config.conv_window = [5,5,1]
+config.conv_dropout = [True, True, True]
 
 config.direct_window_size = 3
 
@@ -50,7 +50,7 @@ config.l1_list = [f for f in
 config.l1_reg = 1e-2
 config.l1_direct_reg = 5e-3
 
-config.dropout_keep_prob = 0.75
+config.dropout_keep_prob = 0.7
 
 config.learning_rate = 0.001
 
@@ -61,4 +61,4 @@ config.num_epochs = 10
 config.patience_increase = 2
 
 config.optimizer = 'adam'
-config.batch_size = 30
+config.batch_size = 25

@@ -527,8 +527,9 @@ class CRF:
             self.criteria['likelihood'] = config.l1_reg * self.l1_norm
             for k in self.criteria:
                 if config.crf_obj_weight > 0:
-                    self.criteria[k] -= self.log_likelihood - \
-                                     config.l1_direct_reg * self.l1_direct_norm
+                    self.criteria[k] -= config.crf_obj_weight * \
+                                (self.log_likelihood - config.l1_direct_reg * \
+                                 self.l1_direct_norm)
                 if config.nn_obj_weight > 0:
                     self.criteria[k] -= (config.nn_obj_weight * cross_entropy)
             # corresponding training steps, gradient clipping
