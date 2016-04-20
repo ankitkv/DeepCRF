@@ -287,19 +287,23 @@ def predict_layer(in_layer, input_ids, config, params, reuse=False,
         b_pred = tf.clip_by_norm(b_pred, config.param_clip)
     directs = []
     direct_mats = collections.OrderedDict({})
-    for (idx,feat) in enumerate(config.direct_features):
-        i = idx + len(config.input_features) - len(config.direct_features)
-        shape = [len(feature_mappings[feat]['reverse']), config.n_outcomes]
-        initial = tf.truncated_normal(shape, stddev=0.1)
-        direct_matrix = tf.Variable(initial, name=feat + '_un_direct')
-        direct_mats[feat + '_un_direct'] = direct_matrix
-        ids = tf.slice(input_ids, [0, 0, i], [-1, -1, 1])
-        directs.append(tf.squeeze(tf.nn.embedding_lookup(direct_matrix,
-                                  ids, name=feat + '_un_direct_lookup'), [2],
-                                  name=feat + '_un_direct_squeeze'))
+    if direct:
+        for (idx,feat) in enumerate(config.direct_features):
+            i = idx + len(config.input_features) - len(config.direct_features)
+            shape = [len(feature_mappings[feat]['reverse']), config.n_outcomes]
+            initial = tf.truncated_normal(shape, stddev=0.1)
+            direct_matrix = tf.Variable(initial, name=feat + '_un_direct')
+            direct_mats[feat + '_un_direct'] = direct_matrix
+            ids = tf.slice(input_ids, [0, 0, i], [-1, -1, 1])
+            directs.append(tf.squeeze(tf.nn.embedding_lookup(direct_matrix,
+                                      ids, name=feat + '_un_direct_lookup'),
+                                      [2], name=feat + '_un_direct_squeeze'))
     flat_input = tf.reshape(in_layer, [-1, input_size])
-    pre_scores = tf.nn.softmax(tf.matmul(flat_input, W_pred) + b_pred + \
-                               tf.reshape(sum(directs), [-1, n_outcomes]))
+    if directs:
+        pre_scores = tf.nn.softmax(tf.matmul(flat_input, W_pred) + b_pred + \
+                                   tf.reshape(sum(directs), [-1, n_outcomes]))
+    else:
+        pre_scores = tf.nn.softmax(tf.matmul(flat_input, W_pred) + b_pred)
     preds_layer = tf.reshape(pre_scores,[batch_size, -1, config.n_tag_windows])
     return (preds_layer, W_pred, b_pred, direct_mats)
 
