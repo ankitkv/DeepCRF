@@ -33,7 +33,7 @@ class Config:
                  use_convo=True, conv_window=[5,5], conv_dropout=[True,True],
                  conv_dim=[200,200],
                  pot_size=1,
-                 pred_window=1, tag_list=[],
+                 pred_window=3, tag_list=[],
                  verbose=False, num_epochs=10, num_predict=5,
                  improvement_threshold=0.999, patience_increase=2.0):
         # optimization parameters
@@ -330,31 +330,30 @@ def make_feed_crf(model, batch, keep_prob):
     return f_dict
 
 
-def best_sentence_tagging(T, mid_tag, right_tag, sentence):
-    words = sentence.shape[0]
-    states = np.zeros((words, T), dtype=np.int)
-    scores = np.zeros((words, T))
-    unigrams = np.zeros((words, T))
-    bigrams = np.zeros((words, T**2))
+def best_sentence_tagging(config, sentence):
+    T = len(config.tag_list)
+    nW = sentence.shape[0]
+    states = np.zeros((nW, T, T), dtype=np.int)
+    scores = np.zeros((nW, T, T))
+    probs = np.zeros((nW, T, T, T))
     for i,w in enumerate(sentence):
         for tags,prob in enumerate(w):
-            unigrams[i][mid_tag[tags]] += prob
-            bigrams[i][(mid_tag[tags] * T) + right_tag[tags]] += prob
-    unigrams = np.log(np.maximum(unigrams, 1e-15))
-    bigrams = np.log(np.maximum(bigrams, 1e-15))
-    scores[0] = unigrams[0]
-    for t, word in enumerate(sentence[1:]):
-        mat = np.zeros((T, T))
+            probs[i, config.left_tag[tags], config.mid_tag[tags], \
+                                                 config.right_tag[tags]] = prob
+    probs = np.log(np.maximum(probs, 1e-15))
+    for t in range(2,nW):
+        mat = np.zeros((T, T, T))
         for i in range(T):
             for j in range(T):
-                mat[i, j] = \
-                        scores[t][i] + bigrams[t][(i * T) + j] - unigrams[t][i]
-        states[t+1] = np.argmax(mat, 0)
-        scores[t+1] = np.max(mat, 0)
-    sol = np.zeros(words, dtype=np.int)
-    sol[-1] = np.argmax(scores[-1])
-    for t in range(words - 1, 0, -1):
-        sol[t-1] = states[t, sol[t]]
+                for k in range(T):
+                    mat[i,j,k] = scores[t-1,i,j] + probs[t-1,i,j,k]
+        states[t] = np.argmax(mat, 0)
+        scores[t] = np.max(mat, 0)
+    sol = np.zeros(nW, dtype=np.int)
+    sol[-1] = np.argmax(np.max(scores[-1], 0))
+    sol[-2] = np.argmax(np.max(scores[-1], 1))
+    for t in range(nW-3,-1,-1):
+        sol[t] = states[t+2][sol[t+1], sol[t+2]]
     return sol
 
 
@@ -362,9 +361,7 @@ def best_tagging(config, scores):
     if config.pred_window == 3:
         ret = np.zeros((scores.shape[0], scores.shape[1]), dtype=np.int)
         for i,sentence in enumerate(scores):
-            ret[i,:] = best_sentence_tagging(len(config.tag_list),
-                                             config.mid_tag,
-                                             config.right_tag, sentence)
+            ret[i,:] = best_sentence_tagging(config, sentence)
         return ret
     else:  # TODO handle cases other than pred_window=3
         argmax = np.argmax(scores, 2)

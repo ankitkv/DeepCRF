@@ -27,16 +27,22 @@ tag_list = ['<P>', 'B', 'Bp', 'I', 'Ip', 'In', 'ID', 'O', 'OD']
 
 input_features = collections.OrderedDict({'pos': 15,
                  'normal': 50, 'prefix': 20, 'suffix': 20,
-                 'all_caps': 1, 'capitalized': 1, 'med_prefix': 20})
+                 'all_caps': 1, 'capitalized': 1, 'med_prefix': 20
+#                 ,'umls_match_tag_full': 3,
+#                 'umls_match_tag_prefix': 3, 'umls_match_tag_acro': 3
+                  })
 
-direct_features = collections.OrderedDict({'umls_match_tag_full': 'O',
-                  'umls_match_tag_prefix': 'O', 'umls_match_tag_acro': 'O'})
+direct_features = collections.OrderedDict({
+                  'umls_match_tag_full': 'O',
+                  'umls_match_tag_prefix': 'O', 'umls_match_tag_acro': 'O'
+                  })
+
+crf_obj_weight = 1.0
+nn_obj_weight = 1.0
 
 config = Config(input_features=input_features, direct_features=direct_features,
-                tag_list=tag_list, pred_window=3)
-
-config.crf_obj_weight = 1.0
-config.nn_obj_weight = 1.0
+                tag_list=tag_list, crf_obj_weight=crf_obj_weight,
+                nn_obj_weight=nn_obj_weight)
 
 config.conv_dim = [80,400,900]
 config.conv_window = [5,5,1]
