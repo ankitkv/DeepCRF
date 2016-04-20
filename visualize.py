@@ -39,7 +39,122 @@ def read_visualization():
     return False
 
 
+def _stats(n,d):
+    if d==0:
+        return (n,d,float('nan'))
+    else:
+        return (n,d,100.0*float(n)/float(d))
+
+
+def is_discontinuous(mention):
+    disc = False
+    for i,tok in enumerate(mention,1):
+        if mention[i-1]+1 != tok:
+            disc = True
+            break
+    return disc
+
+
+def visualize_stats(section, longc_n=2, morec_n=2):
+    global visualization
+    visual = visualization[section]
+    noc_sentences = 0
+    noc_mistakes = 0
+    singlec_sentences = 0
+    singlec_mistakes = 0
+    morec_sentences = 0
+    morec_mistakes = 0
+    longc_sentences = 0
+    longc_mentions = 0
+    longc_sent_mistakes = 0
+    longc_mention_mistakes = 0
+    discont_sentences = 0
+    discont_mentions = 0
+    discont_sent_mistakes = 0
+    discont_mention_mistakes = 0
+    overlap_sentences = 0
+    overlap_mentions = 0
+    overlap_sent_mistakes = 0
+    overlap_mention_mistakes = 0
+    for (sentence, _, _, _, true_mentions, preds, fp, fn) in visual:
+        mistaken = fp > 0 or fn > 0
+        if not true_mentions:
+            noc_sentences += 1
+            if mistaken:
+                noc_mistakes += 1
+        if len(true_mentions) == 1:
+            singlec_sentences += 1
+            if mistaken:
+                singlec_mistakes += 1
+        if len(true_mentions) > morec_n:
+            morec_sentences += 1
+            if mistaken:
+                morec_mistakes += 1
+        longc = False
+        discont = False
+        overlap = False
+        for mention in true_mentions:
+            mention_mistaken = mention not in preds
+            if len(mention) > longc_n:
+                longc = True
+                longc_mentions += 1
+                if mention_mistaken:
+                    longc_mention_mistakes += 1
+            if is_discontinuous(mention):
+                discont = True
+                discont_mentions += 1
+                if mention_mistaken:
+                    discont_mention_mistakes += 1
+            mention_overlap = False
+            for altmention in true_mentions:
+                if altmention != mention:
+                    if altmention[-1] > mention[0] and \
+                                mention[-1] > altmention[0]:
+                        mention_overlap = True
+                        break
+            if mention_overlap:
+                overlap = True
+                overlap_mentions += 1
+                if mention_mistaken:
+                    overlap_mention_mistakes += 1
+        if longc:
+            longc_sentences += 1
+            if mistaken:
+                longc_sent_mistakes += 1
+        if discont:
+            discont_sentences += 1
+            if mistaken:
+                discont_sent_mistakes += 1
+        if overlap:
+            overlap_sentences += 1
+            if mistaken:
+                overlap_sent_mistakes += 1
+    print
+    print 'Incorrect sentences (no concepts):             %d/%d   (%f)' \
+                % _stats(noc_mistakes, noc_sentences)
+    print 'Incorrect sentences (single concept):          %d/%d   (%f)' \
+                % _stats(singlec_mistakes, singlec_sentences)
+    print 'Incorrect sentences (more than %d concepts):    %d/%d   (%f)' \
+                % ((morec_n,) + _stats(morec_mistakes, morec_sentences))
+    print 'Incorrect sentences (concepts longer than %d):  %d/%d   (%f)' \
+                % ((longc_n,) + _stats(longc_sent_mistakes, longc_sentences))
+    print 'Incorrect sentences (discontinuous concepts):  %d/%d   (%f)' \
+                % _stats(discont_sent_mistakes, discont_sentences)
+    print 'Incorrect sentences (overlapping concepts):    %d/%d   (%f)' \
+                % _stats(overlap_sent_mistakes, overlap_sentences)
+    print 'Missed mentions (concepts longer than %d):      %d/%d   (%f)' \
+                % ((longc_n,) + _stats(longc_mention_mistakes, longc_mentions))
+    print 'Missed mentions (discontinuous concepts):      %d/%d   (%f)' \
+                % _stats(discont_mention_mistakes, discont_mentions)
+    print 'Missed mentions (overlapping concepts):        %d/%d   (%f)' \
+                % _stats(overlap_mention_mistakes, overlap_mentions)
+    print
+
+
 def visualize_preds(section, what):
+    if what == 'stats':
+        visualize_stats(section)
+        return
     global visualization
     print
     print
@@ -351,11 +466,11 @@ if __name__ == '__main__':
     parser.add_argument("-file", "--visualization_file",
                         help="visualization file")
     parser.add_argument("-train", "--train",
-                        help="one of 'all' or 'wrong'")
+                        help="one of 'all', 'wrong' or 'stats'")
     parser.add_argument("-test", "--test",
-                        help="one of 'all' or 'wrong'")
+                        help="one of 'all', 'wrong' or 'stats'")
     parser.add_argument("-dev", "--dev",
-                        help="one of 'all' or 'wrong'")
+                        help="one of 'all', 'wrong' or 'stats'")
     parser.add_argument("-pots", "--potentials", nargs=2,
                         metavar=("FEATURE_NAME", "TAG"),
                         help="feature values that lead to high unary pots. " \
