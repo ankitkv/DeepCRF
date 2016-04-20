@@ -26,7 +26,7 @@ features = ['word', 'lemma', 'pos', 'normal', 'word_length',
 tag_list = ['<P>', 'B', 'Bp', 'I', 'Ip', 'In', 'ID', 'O', 'OD']
 
 input_features = collections.OrderedDict({'pos': 15,
-                 'normal': 30, 'prefix': 20, 'suffix': 20,
+                 'normal': 50, 'prefix': 20, 'suffix': 20,
                  'all_caps': 1, 'capitalized': 1, 'med_prefix': 20})
 
 direct_features = collections.OrderedDict({'umls_match_tag_full': 'O',
