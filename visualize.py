@@ -176,37 +176,37 @@ def visualize_stats(section, longc_n=2, morec_n=2):
             if mistaken:
                 overlap_sent_mistakes += 1
     print
-    print 'Incorrect sentences (no concepts):               %d/%d   (%f)' \
+    print 'Incorrect sentences (no mentions):               %d/%d   (%.2f)' \
                 % _stats(noc_mistakes, noc_sentences)
-    print 'Incorrect sentences (no predictions):            %d/%d   (%f)' \
+    print 'Incorrect sentences (no predictions):            %d/%d   (%.2f)' \
                 % _stats(nopred_mistakes, nopred_sentences)
-    print 'Incorrect sentences (single concept):            %d/%d   (%f)' \
+    print 'Incorrect sentences (single mention):            %d/%d   (%.2f)' \
                 % _stats(singlec_mistakes, singlec_sentences)
-    print 'Incorrect sentences (more than %d concepts):      %d/%d   (%f)' \
+    print 'Incorrect sentences (more than %d mentions):      %d/%d   (%.2f)' \
                 % ((morec_n,) + _stats(morec_mistakes, morec_sentences))
-    print 'Incorrect sentences (concepts longer than %d):    %d/%d   (%f)' \
+    print 'Incorrect sentences (mentions longer than %d):    %d/%d   (%.2f)' \
                 % ((longc_n,) + _stats(longc_sent_mistakes, longc_sentences))
-    print 'Incorrect sentences (discontinuous concepts):    %d/%d   (%f)' \
+    print 'Incorrect sentences (discontinuous mentions):    %d/%d   (%.2f)' \
                 % _stats(discont_sent_mistakes, discont_sentences)
-    print 'Incorrect sentences (overlapping concepts):      %d/%d   (%f)' \
+    print 'Incorrect sentences (overlapping mentions):      %d/%d   (%.2f)' \
                 % _stats(overlap_sent_mistakes, overlap_sentences)
     print
-    print 'Missed mentions (more than %d concepts):          %d/%d   (%f)' \
+    print 'Missed mentions (more than %d mentions):          %d/%d   (%.2f)' \
                 % ((morec_n,) + _stats(morec_mention_mistakes, morec_mentions))
-    print 'Missed mentions (concepts longer than %d):        %d/%d   (%f)' \
+    print 'Missed mentions (mentions longer than %d):        %d/%d   (%.2f)' \
                 % ((longc_n,) + _stats(longc_mention_mistakes, longc_mentions))
-    print 'Missed mentions (discontinuous concepts):        %d/%d   (%f)' \
+    print 'Missed mentions (discontinuous mentions):        %d/%d   (%.2f)' \
                 % _stats(discont_mention_mistakes, discont_mentions)
-    print 'Missed mentions (overlapping concepts):          %d/%d   (%f)' \
+    print 'Missed mentions (overlapping mentions):          %d/%d   (%.2f)' \
                 % _stats(overlap_mention_mistakes, overlap_mentions)
     print
-    print 'Incorrect predictions (more than %d concepts):    %d/%d   (%f)' \
+    print 'Incorrect predictions (more than %d mentions):    %d/%d   (%.2f)' \
                 % ((morec_n,) + _stats(morec_pred_mistakes, morec_preds))
-    print 'Incorrect predictions (preds longer than %d):     %d/%d   (%f)' \
+    print 'Incorrect predictions (preds longer than %d):     %d/%d   (%.2f)' \
                 % ((longc_n,) + _stats(longc_pred_mistakes, longc_preds))
-    print 'Incorrect predictions (discontinuous preds):     %d/%d   (%f)' \
+    print 'Incorrect predictions (discontinuous preds):     %d/%d   (%.2f)' \
                 % _stats(discont_pred_mistakes, discont_preds)
-    print 'Incorrect predictions (overlapping preds):       %d/%d   (%f)' \
+    print 'Incorrect predictions (overlapping preds):       %d/%d   (%.2f)' \
                 % _stats(overlap_pred_mistakes, overlap_preds)
     print
 
