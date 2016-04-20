@@ -16,3 +16,13 @@ direct_umls                                             77.47, 76.83
 lower_umls                                              78.00, 77.51
 windowpred_lowumls                                      73.34, 73.44
 mixed: windowpred + crf(direct_umls)                    77.73, 76.70
+
+
+NEW EXPERIMENTS:
+
+crf_nodirect                                            77.19, 76.70
+crf_umlsdirect
+nn_nodirect
+nn_umlsdirect
+mixed_nodirect
+mixed_umlsdirect
