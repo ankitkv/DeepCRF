@@ -23,6 +23,6 @@ NEW EXPERIMENTS:
 crf_nodirect
 crf_umlsdirect
 nn_nodirect
-nn_umlsdirect
+nn_umlsdirect                                           77.45, 76.61
 mixed_nodirect
 mixed_umlsdirect

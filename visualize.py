@@ -55,7 +55,7 @@ def is_discontinuous(mention):
     return disc
 
 
-def visualize_stats(section, longc_n=2, morec_n=2):
+def visualize_stats(section, longc_n=3, morec_n=3):
     global visualization
     visual = visualization[section]
     noc_sentences = 0
@@ -242,10 +242,11 @@ def visualize_preds(section, args):
             valid = True
         elif any(len(m) > 3 for m in true_mentions) and 'l' in flags:
             valid = True
-        elif any(w['label']=='ID' for w in sentence) and 'd' in flags:
+        elif any(w['label'].split('_')[0]=='ID' for w in sentence) \
+                and 'd' in flags:
             valid = True
-        elif any(w['label'] in ['Bp', 'Ip', 'In'] for w in sentence) \
-                 and 'o' in flags:
+        elif any(w['label'].split('_')[0] in ['Bp', 'Ip', 'In'] \
+                for w in sentence) and 'o' in flags:
             valid = True
         if not valid:
             continue
@@ -593,6 +594,8 @@ o: overlapping mentions.
                         help="sparsity in the embeddings")
     parser.add_argument("-directs", "--directs", metavar="FEATURE_NAME",
                         help="mapping matrix for upper-level feature")
+    parser.add_argument("-stats", "--stats",
+                        help="mistake stats for a set")
     args = parser.parse_args()
     if args.config_file:
         config_file = os.path.abspath(args.config_file)
@@ -616,4 +619,6 @@ o: overlapping mentions.
             visualize_sparsity(args.sparsity)
         if args.directs:
             visualize_directs(args.directs)
+        if args.stats:
+            visualize_stats(args.stats)
 
