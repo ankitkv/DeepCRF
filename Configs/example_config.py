@@ -64,7 +64,7 @@ config.gradient_clip = 50 #5
 config.param_clip = 250 #50
 
 config.num_epochs = 10
-config.patience_increase = 2
+config.patience_increase = 1.8
 
 config.optimizer = 'adam'
 config.batch_size = 25

@@ -71,4 +71,3 @@ Incorrect predictions (more than 3 mentions):    452/2469   (18.31)
 Incorrect predictions (preds longer than 3):     88/199   (44.22)
 Incorrect predictions (discontinuous preds):     1797/7853   (22.88)
 Incorrect predictions (overlapping preds):       191/399   (47.87)
-

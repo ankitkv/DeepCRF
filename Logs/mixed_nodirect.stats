@@ -1,0 +1,73 @@
+best dev F1 is: 0.768053993251
+ with train F1: 0.936890713186
+   and test F1: 0.770459835189
+
+
+Single mention:             78.83, 80.56
+More than 3 mentions:       79.08, 78.34
+Mentions longer than 3:     59.89, 69.48
+Discontinuous mentions:     57.08, 59.97
+Overlapping mentions:       65.37, 68.46
+
+
+DEV
+
+Incorrect sentences (no mentions):               59/1838   (3.21)
+Incorrect sentences (no predictions):            146/1925   (7.58)
+Incorrect sentences (single mention):            225/786   (28.63)
+Incorrect sentences (more than 3 mentions):      76/104   (73.08)
+Incorrect sentences (mentions longer than 3):    60/81   (74.07)
+Incorrect sentences (discontinuous mentions):    488/1268   (38.49)
+Incorrect sentences (overlapping mentions):      47/55   (85.45)
+
+Missed mentions (more than 3 mentions):          169/687   (24.60)
+Missed mentions (mentions longer than 3):        61/90   (67.78)
+Missed mentions (discontinuous mentions):        617/2324   (26.55)
+Missed mentions (overlapping mentions):          72/130   (55.38)
+
+Incorrect predictions (more than 3 mentions):    105/623   (16.85)
+Incorrect predictions (preds longer than 3):     21/50   (42.00)
+Incorrect predictions (discontinuous preds):     414/2121   (19.52)
+Incorrect predictions (overlapping preds):       26/77   (33.77)
+
+
+TRAIN
+
+Incorrect sentences (no mentions):               34/6084   (0.56)
+Incorrect sentences (no predictions):            84/6134   (1.37)
+Incorrect sentences (single mention):            175/3219   (5.44)
+Incorrect sentences (more than 3 mentions):      134/417   (32.13)
+Incorrect sentences (mentions longer than 3):    99/365   (27.12)
+Incorrect sentences (discontinuous mentions):    501/4916   (10.19)
+Incorrect sentences (overlapping mentions):      85/205   (41.46)
+
+Missed mentions (more than 3 mentions):          228/2663   (8.56)
+Missed mentions (mentions longer than 3):        97/392   (24.74)
+Missed mentions (discontinuous mentions):        586/8803   (6.66)
+Missed mentions (overlapping mentions):          97/489   (19.84)
+
+Incorrect predictions (more than 3 mentions):    208/2643   (7.87)
+Incorrect predictions (preds longer than 3):     52/347   (14.99)
+Incorrect predictions (discontinuous preds):     521/8738   (5.96)
+Incorrect predictions (overlapping preds):       84/463   (18.14)
+
+
+TEST
+
+Incorrect sentences (no mentions):               356/7572   (4.70)
+Incorrect sentences (no predictions):            284/7500   (3.79)
+Incorrect sentences (single mention):            651/2541   (25.62)
+Incorrect sentences (more than 3 mentions):      301/402   (74.88)
+Incorrect sentences (mentions longer than 3):    90/169   (53.25)
+Incorrect sentences (discontinuous mentions):    1521/4138   (36.76)
+Incorrect sentences (overlapping mentions):      156/178   (87.64)
+
+Missed mentions (more than 3 mentions):          638/2696   (23.66)
+Missed mentions (mentions longer than 3):        73/183   (39.89)
+Missed mentions (discontinuous mentions):        1832/7956   (23.03)
+Missed mentions (overlapping mentions):          220/411   (53.53)
+
+Incorrect predictions (more than 3 mentions):    500/2558   (19.55)
+Incorrect predictions (preds longer than 3):     84/194   (43.30)
+Incorrect predictions (discontinuous preds):     1817/7941   (22.88)
+Incorrect predictions (overlapping preds):       137/308   (44.48)
