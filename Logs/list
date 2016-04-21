@@ -21,7 +21,7 @@ mixed: windowpred + crf(direct_umls)                    77.73, 76.70
 NEW EXPERIMENTS:
 
 crf_nodirect
-crf_umlsdirect
+crf_umlsdirect                                          76.81, 76.50
 nn_nodirect
 nn_umlsdirect                                           77.45, 76.61
 mixed_nodirect
