@@ -567,7 +567,7 @@ def preds_to_sentences(model_preds, config):
     return res
 
 
-def evaluate(sentences, threshold):
+def evaluate(sentences, threshold, save_visual=True):
     TP = 0
     FP = 0
     FN = 0
@@ -586,19 +586,25 @@ def evaluate(sentences, threshold):
         TP += tp
         fn = len(true_mentions) - tp
         FN += fn
-        preds = set(pred for pred, th in sentence[2] if th >= threshold)
-        visual.append((sentence[3], sentence[4], sentence[5], sentence[6],
-                       true_mentions, preds, fp, fn))
+        if save_visual:
+            preds = set(pred for pred, th in sentence[2] if th >= threshold)
+            visual.append((sentence, true_mentions, preds, fp, fn))
     if (TP + FP) == 0:
         prec = 0
         recall = 0
     else:
         prec = float(TP) / (TP + FP)
-        recall = float(TP) / (TP + FN)
+        if TP + FN == 0:
+            recall = 0
+        else:
+            recall = float(TP) / (TP + FN)
     if prec == 0 or recall == 0:
         f1 = 0
     else:
         f1 =  2 * (prec * recall) / (prec + recall)
     print 'TH:',threshold, '\t', 'P:',prec, '\t', 'R:',recall, '\t', 'F:',f1
-    return (f1, visual)
+    if save_visual:
+        return (f1, visual)
+    else:
+        return f1
 

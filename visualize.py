@@ -88,7 +88,8 @@ def visualize_stats(section, longc_n=2, morec_n=2):
     overlap_sent_mistakes = 0
     overlap_mention_mistakes = 0
     overlap_pred_mistakes = 0
-    for (sentence, _, _, _, true_mentions, preds, fp, fn) in visual:
+    for (sent, true_mentions, preds, fp, fn) in visual:
+        sentence = sent[3]
         mistaken = fp > 0 or fn > 0
         morec = False
         if not true_mentions:
@@ -211,17 +212,45 @@ def visualize_stats(section, longc_n=2, morec_n=2):
     print
 
 
-def visualize_preds(section, what):
-    if what == 'stats':
-        visualize_stats(section)
-        return
+#a: all.
+#n: no mentions.
+#s: single mention.
+#m: more than 3 mentions.
+#l: mentions longer than 3.
+#d: discontinuous mentions.
+#o: overlapping mentions.
+def visualize_preds(section, args):
+    what, flags = args
+    flags = set(f for f in flags)
     global visualization
     print
     print
     print bcolors.HEADER + 'visualizing', section + bcolors.ENDC
     print
     visual = visualization[section]
-    for (sentence, _, _, _, true_mentions, preds, fp, fn) in visual:
+    sentences = []
+    for (sent, true_mentions, preds, fp, fn) in visual:
+        sentence = sent[3]
+        valid = False
+        if 'a' in flags:
+            valid = True
+        elif not true_mentions and 'n' in flags:
+            valid = True
+        elif len(true_mentions) == 1 and 's' in flags:
+            valid = True
+        elif len(true_mentions) > 3 and 'm' in flags:
+            valid = True
+        elif any(len(m) > 3 for m in true_mentions) and 'l' in flags:
+            valid = True
+        elif any(w['label']=='ID' for w in sentence) and 'd' in flags:
+            valid = True
+        elif any(w['label'] in ['Bp', 'Ip', 'In'] for w in sentence) \
+                 and 'o' in flags:
+            valid = True
+        if not valid:
+            continue
+        else:
+            sentences.append(sent)
         if what == 'all' or (what == 'wrong' and (fp > 0 or fn > 0)):
             print bcolors.OKBLUE + '\nTrue:' + bcolors.ENDC,
             for mention in true_mentions:
@@ -269,6 +298,8 @@ def visualize_preds(section, what):
                     else:
                         print word['word'].center(len(str(i))),
             print
+    print
+    evaluate(sentences, 0.5, False)
 
 
 def visualize_activations(args, n=25, rare=0.0001, use_pots=True):
@@ -292,11 +323,15 @@ def visualize_activations(args, n=25, rare=0.0001, use_pots=True):
     all_pots = collections.defaultdict(lambda: collections.defaultdict(list))
     fd = collections.defaultdict(int)
     for v in visual:
-        sentence = v[0]
+        sentence = v[0][3]
         for word in sentence:
             fd[word[feature]] += 1
     valid = set(k for k,v in fd.items() if v >= rare * sum(fd.values()))
-    for (sentence, un_pots, bin_pots, preds, _, _, _, _) in visual:
+    for (sent, _, _, _, _) in visual:
+        sentence = sent[3]
+        un_pots = sent[4]
+        bin_pots = sent[5]
+        preds = sent[6]
         pre_len = (len(un_pots) - len(sentence)) // 2
         for i, (upots, bpots, pred) in enumerate(zip(
                                   un_pots[pre_len:],bin_pots[pre_len:],preds)):
@@ -519,18 +554,30 @@ def visualize_directs(feature_name, thres=0.025):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Testing the models for \
-                                     various parameter values')
+    parser = argparse.ArgumentParser(description=\
+'''Testing the models for various parameter values. FLAGS refer to:
+a: all.
+n: no mentions.
+s: single mention.
+m: more than 3 mentions.
+l: mentions longer than 3.
+d: discontinuous mentions.
+o: overlapping mentions.
+'''
+    )
     parser.add_argument("-conf", "--config_file",
                         help="location of configuration file")
     parser.add_argument("-file", "--visualization_file",
                         help="visualization file")
-    parser.add_argument("-train", "--train",
-                        help="one of 'all', 'wrong' or 'stats'")
-    parser.add_argument("-test", "--test",
-                        help="one of 'all', 'wrong' or 'stats'")
-    parser.add_argument("-dev", "--dev",
-                        help="one of 'all', 'wrong' or 'stats'")
+    parser.add_argument("-train", "--train", nargs=2,
+                        metavar=("<all/wrong>", "FLAGS"),
+                        help="train set mistakes")
+    parser.add_argument("-test", "--test", nargs=2,
+                        metavar=("<all/wrong>", "FLAGS"),
+                        help="test set mistakes")
+    parser.add_argument("-dev", "--dev", nargs=2,
+                        metavar=("<all/wrong>", "FLAGS"),
+                        help="dev set mistakes")
     parser.add_argument("-pots", "--potentials", nargs=2,
                         metavar=("FEATURE_NAME", "TAG"),
                         help="feature values that lead to high unary pots. " \
