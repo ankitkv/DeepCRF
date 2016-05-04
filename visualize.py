@@ -88,7 +88,9 @@ def visualize_stats(section, longc_n=3, morec_n=3):
     overlap_sent_mistakes = 0
     overlap_mention_mistakes = 0
     overlap_pred_mistakes = 0
+    totalm = 0
     for (sent, true_mentions, preds, fp, fn) in visual:
+        totalm += len(true_mentions)
         sentence = sent[3]
         mistaken = fp > 0 or fn > 0
         morec = False
@@ -176,6 +178,8 @@ def visualize_stats(section, longc_n=3, morec_n=3):
             overlap_sentences += 1
             if mistaken:
                 overlap_sent_mistakes += 1
+    print
+    print 'Total number of mentions:                        %d' % totalm
     print
     print 'Incorrect sentences (no mentions):               %d/%d   (%.2f)' \
                 % _stats(noc_mistakes, noc_sentences)
