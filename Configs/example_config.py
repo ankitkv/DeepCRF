@@ -14,7 +14,6 @@ vecs_file = pjoin(git_dir, 'Data/crf_data/semeval_vecs.dat')
 
 vis_file = pjoin(git_dir, 'visual.pickle')
 embeddings_file = pjoin(git_dir, 'embeddings.model')
-directs_file = pjoin(git_dir, 'directs.model')
 
 # feature names and tag list
 features = ['word', 'lemma', 'pos', 'normal', 'word_length',
@@ -27,9 +26,9 @@ tag_list = ['<P>', 'B', 'Bp', 'I', 'Ip', 'In', 'ID', 'O', 'OD']
 
 input_features = collections.OrderedDict({'pos': 15,
                  'normal': 50, 'prefix': 20, 'suffix': 20,
-                 'all_caps': 1, 'capitalized': 1, 'med_prefix': 20
-#                 ,'umls_match_tag_full': 3,
-#                 'umls_match_tag_prefix': 3, 'umls_match_tag_acro': 3
+                 'all_caps': 1, 'capitalized': 1, 'med_prefix': 20,
+                 'umls_match_tag_full': 3, 'umls_match_tag_prefix': 3,
+                 'umls_match_tag_acro': 3
                   })
 
 direct_features = collections.OrderedDict({
@@ -38,7 +37,7 @@ direct_features = collections.OrderedDict({
                   })
 
 crf_obj_weight = 1.0
-nn_obj_weight = 1.0
+nn_obj_weight = -1
 
 config = Config(input_features=input_features, direct_features=direct_features,
                 tag_list=tag_list, crf_obj_weight=crf_obj_weight,

@@ -54,9 +54,8 @@ class Config:
         self.init_words = init_words
         self.input_features = input_features
         self.direct_features = direct_features
-        for feat in direct_features:
-            self.input_features[feat] = 0
-        self.features_dim = sum(input_features.values())
+        self.features_dim = sum(input_features.values()) - \
+               sum(v for k,v in input_features.items() if k in direct_features)
         # convolutional layer
         self.use_convo = use_convo
         self.conv_window = conv_window
@@ -229,7 +228,7 @@ class Batch:
 class Parameters:
     def __init__(self, init={}, emb={}, w_c=False, b_c=False, w_p=False,
                  b_p=False, w_po=False, b_po=False, w_po_b=False, b_po_b=False,
-                 w_po_u=False, b_po_u=False, direct_bin=False,direct_un=False):
+                 w_po_u=False, b_po_u=False):
         self.init_dic = init
         self.embeddings = emb
         self.W_conv = w_c
@@ -242,8 +241,6 @@ class Parameters:
         self.b_pot_bin = b_po_b
         self.W_pot_un = w_po_u
         self.b_pot_un = b_po_u
-        self.direct_bin = direct_bin
-        self.direct_un = direct_un
 
 
 def aggregate_labels(sentence, config):

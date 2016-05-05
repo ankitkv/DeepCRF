@@ -64,8 +64,8 @@ def feature_layer(in_layer, config, params, reuse=False):
         param_dic = params.init_dic
         param_vars = {}
         embeddings = []
+        direct_embeddings = []
         for i, (feat, dim) in enumerate(in_features.items()):
-            if not dim: continue # skip direct features
             if feat in param_dic: #TODO: needs to be updated
                 embeddings = \
                       tf.Variable(tf.convert_to_tensor(param_dic[feat],
@@ -85,11 +85,16 @@ def feature_layer(in_layer, config, params, reuse=False):
                 emb_matrix = tf.Variable(initial, name=feat + '_embedding')
                 param_vars[feat] = emb_matrix
                 ids = tf.slice(input_ids, [0, 0, i], [-1, -1, 1])
-                embeddings.append(tf.squeeze(tf.nn.embedding_lookup(emb_matrix,
-                                                   ids, name=feat + '_lookup'),
-                                                  [2], name=feat + '_squeeze'))
+                embedding = tf.squeeze(tf.nn.embedding_lookup(emb_matrix, ids,
+                                                        name=feat + '_lookup'),
+                                       [2], name=feat + '_squeeze')
+                if feat in config.direct_features:
+                    direct_embeddings.append(embedding)
+                else:
+                    embeddings.append(embedding)
     embedding_layer = tf.concat(2, embeddings)
-    return (embedding_layer, param_vars)
+    direct_emb = tf.concat(2, direct_embeddings)
+    return (embedding_layer, direct_emb, param_vars)
 
 
 # TODO
@@ -127,6 +132,41 @@ def convo_layer(in_layer, config, params, i, reuse=False, name='Convo'):
     conv_layer = tf.reshape(conv2d(reshaped, W_conv),
                             [batch_size, -1, output_size], name=name) + b_conv
     return (conv_layer, W_conv, b_conv)
+
+
+# TODO save params and make reusable
+def gating_layer(in_layer, in_direct, config):
+    batch_size = config.batch_size
+    input_size = int(in_layer.get_shape()[2])
+    direct_size = int(in_direct.get_shape()[2])
+    W_in_forget = tf.clip_by_norm(weight_variable([input_size, input_size],
+                                  name='in_forget'), config.param_clip)
+    b_in_forget = tf.clip_by_norm(bias_variable([input_size],
+                                  name='in_forget'), config.param_clip)
+    W_dir_forget = tf.clip_by_norm(weight_variable([direct_size, input_size],
+                                   name='dir_forget'), config.param_clip)
+    b_dir_forget = tf.clip_by_norm(bias_variable([input_size],
+                                   name='dir_forget'), config.param_clip)
+    W_in_update = tf.clip_by_norm(weight_variable([input_size, input_size],
+                                  name='in_update'), config.param_clip)
+    b_in_update = tf.clip_by_norm(bias_variable([input_size],
+                                  name='in_update'), config.param_clip)
+    W_dir_update = tf.clip_by_norm(weight_variable([direct_size, input_size],
+                                   name='dir_update'), config.param_clip)
+    b_dir_update = tf.clip_by_norm(bias_variable([input_size],
+                                   name='dir_update'), config.param_clip)
+    flat_input = tf.reshape(in_layer, [-1, input_size])
+    flat_direct = tf.reshape(in_direct, [-1, direct_size])
+    in_forget = tf.matmul(flat_input, W_in_forget) + b_in_forget
+    dir_forget = tf.matmul(flat_direct, W_dir_forget) + b_dir_forget
+    in_update = tf.matmul(flat_input, W_in_update) + b_in_update
+    dir_update = tf.matmul(flat_direct, W_dir_update) + b_dir_update
+    forget = tf.reshape(tf.nn.sigmoid(in_forget + dir_forget),
+                        [batch_size, -1, input_size])
+    update = tf.reshape(tf.nn.relu(in_update) + tf.nn.relu(dir_update),
+                        [batch_size, -1, input_size])
+    gated_layer = tf.add(tf.mul(in_layer, forget), update)
+    return gated_layer
 
 
 ###################################
@@ -174,10 +214,8 @@ def potentials_layer(in_layer, mask, config, params, reuse=False,
 
 
 # alternatively: unary + binary
-def binary_log_pots(in_layer, input_ids, config, params, reuse=False,
-                    name='Binary'):
+def binary_log_pots(in_layer, config, params, reuse=False, name='Binary'):
     input_size = int(in_layer.get_shape()[2])
-    feature_mappings = config.feature_maps
     pot_shape = [config.n_tags] * 2
     out_shape = [config.batch_size, -1] + pot_shape
     pot_card = config.n_tags ** 2
@@ -192,30 +230,12 @@ def binary_log_pots(in_layer, input_ids, config, params, reuse=False,
         b_pot_bin = tf.clip_by_norm(b_pot_bin, config.param_clip)
     flat_input = tf.reshape(in_layer, [-1, input_size])
     pre_scores = tf.matmul(flat_input, W_pot_bin) + b_pot_bin
-    directs = []
-    direct_mats = collections.OrderedDict({})
-    for (idx,feat) in enumerate(config.direct_features):
-        i = idx + len(config.input_features) - len(config.direct_features)
-        shape = [len(feature_mappings[feat]['reverse']), config.n_tags ** 2]
-        initial = tf.truncated_normal(shape, stddev=0.1)
-        direct_matrix = tf.Variable(initial, name=feat + '_bin_direct')
-        direct_mats[feat + '_bin_direct'] = direct_matrix
-        ids = tf.slice(input_ids, [0, 0, i], [-1, -1, 1])
-        directs.append(tf.squeeze(tf.nn.embedding_lookup(direct_matrix,
-                                  ids, name=feat + '_bin_direct_lookup'),
-                       [2], name=feat + '_bin_direct_squeeze'))
-    if directs:
-        bin_pots_layer = tf.reshape(pre_scores, out_shape) + \
-                         tf.reshape(sum(directs), out_shape)
-    else:
-        bin_pots_layer = tf.reshape(pre_scores, out_shape)
-    return (bin_pots_layer, W_pot_bin, b_pot_bin, direct_mats)
+    bin_pots_layer = tf.reshape(pre_scores, out_shape)
+    return (bin_pots_layer, W_pot_bin, b_pot_bin)
 
 
-def unary_log_pots(in_layer, input_ids, mask, config, params, reuse=False,
-                   name='Unary'):
+def unary_log_pots(in_layer, mask, config, params, reuse=False, name='Unary'):
     input_size = int(in_layer.get_shape()[2])
-    feature_mappings = config.feature_maps
     pot_shape = [config.n_tags]
     out_shape = [config.batch_size, -1] + pot_shape
     pot_card = config.n_tags
@@ -230,19 +250,7 @@ def unary_log_pots(in_layer, input_ids, mask, config, params, reuse=False,
         b_pot_un = tf.clip_by_norm(b_pot_un, config.param_clip)
     flat_input = tf.reshape(in_layer, [-1, input_size])
     pre_scores = tf.matmul(flat_input, W_pot_un) + b_pot_un
-    directs = []
-    direct_mats = collections.OrderedDict({})
-    for (idx,feat) in enumerate(config.direct_features):
-        i = idx + len(config.input_features) - len(config.direct_features)
-        shape = [len(feature_mappings[feat]['reverse']), config.n_tags]
-        initial = tf.truncated_normal(shape, stddev=0.1)
-        direct_matrix = tf.Variable(initial, name=feat + '_un_direct')
-        direct_mats[feat + '_un_direct'] = direct_matrix
-        ids = tf.slice(input_ids, [0, 0, i], [-1, -1, 1])
-        directs.append(tf.squeeze(tf.nn.embedding_lookup(direct_matrix,
-                                  ids, name=feat + '_un_direct_lookup'),
-                       [2], name=feat + '_un_direct_squeeze'))
-    un_pots_layer = tf.reshape(pre_scores, out_shape) + sum(directs)
+    un_pots_layer = tf.reshape(pre_scores, out_shape)
     # define potentials for padding tokens
     shape_aux = 0 * mask + 1
     pad_pots = tf.pack([0 * shape_aux] + [-1e2 * shape_aux
@@ -253,7 +261,7 @@ def unary_log_pots(in_layer, input_ids, mask, config, params, reuse=False,
     mask_a = tf.tile(mask_a, [1, 1] + pot_shape)
     # combine
     un_pots_layer = (un_pots_layer * mask_a + (1 - mask_a) * pad_pots)
-    return (un_pots_layer, W_pot_un, b_pot_un, direct_mats)
+    return (un_pots_layer, W_pot_un, b_pot_un)
 
 
 def log_pots(un_pots_layer, bin_pots_layer, config, params,
@@ -270,12 +278,10 @@ def log_pots(un_pots_layer, bin_pots_layer, config, params,
 
 
 # Takes a representation as input and returns predictions of tag windows
-def predict_layer(in_layer, input_ids, config, params, reuse=False,
-                  direct=False, name='Predict'):
+def predict_layer(in_layer, config, params, reuse=False, name='Predict'):
     n_outcomes = config.n_outcomes
     batch_size = config.batch_size
     input_size = int(in_layer.get_shape()[2])
-    feature_mappings = config.feature_maps
     if reuse:
         tf.get_variable_scope().reuse_variables()
         W_pred = params.W_pred
@@ -285,27 +291,10 @@ def predict_layer(in_layer, input_ids, config, params, reuse=False,
         b_pred = bias_variable([n_outcomes], name=name)
         W_pred = tf.clip_by_norm(W_pred, config.param_clip)
         b_pred = tf.clip_by_norm(b_pred, config.param_clip)
-    directs = []
-    direct_mats = collections.OrderedDict({})
-    if direct:
-        for (idx,feat) in enumerate(config.direct_features):
-            i = idx + len(config.input_features) - len(config.direct_features)
-            shape = [len(feature_mappings[feat]['reverse']), config.n_outcomes]
-            initial = tf.truncated_normal(shape, stddev=0.1)
-            direct_matrix = tf.Variable(initial, name=feat + '_un_direct')
-            direct_mats[feat + '_un_direct'] = direct_matrix
-            ids = tf.slice(input_ids, [0, 0, i], [-1, -1, 1])
-            directs.append(tf.squeeze(tf.nn.embedding_lookup(direct_matrix,
-                                      ids, name=feat + '_un_direct_lookup'),
-                                      [2], name=feat + '_un_direct_squeeze'))
     flat_input = tf.reshape(in_layer, [-1, input_size])
-    if directs:
-        pre_scores = tf.nn.softmax(tf.matmul(flat_input, W_pred) + b_pred + \
-                                   tf.reshape(sum(directs), [-1, n_outcomes]))
-    else:
-        pre_scores = tf.nn.softmax(tf.matmul(flat_input, W_pred) + b_pred)
+    pre_scores = tf.nn.softmax(tf.matmul(flat_input, W_pred) + b_pred)
     preds_layer = tf.reshape(pre_scores,[batch_size, -1, config.n_tag_windows])
-    return (preds_layer, W_pred, b_pred, direct_mats)
+    return (preds_layer, W_pred, b_pred)
 
 
 # Takes tag window predictions, and returns cross-entropy and accuracy
@@ -411,16 +400,14 @@ class CRF:
     def make(self, config, params, reuse=False, name='CRF'):
         with tf.variable_scope(name):
             self.l1_norm = tf.reduce_sum(tf.zeros([1]))
-            if config.crf_obj_weight > 0:
-                self.l1_direct_norm = tf.reduce_sum(tf.zeros([1]))
 
             ### EMBEDDING LAYER
             if reuse:
                 tf.get_variable_scope().reuse_variables()
             # initial embedding
-            (out_layer, embeddings) = feature_layer(self.input_ids,
-                                                    config, params,
-                                                    reuse=reuse)
+            (out_layer, direct_emb, embeddings) = feature_layer(self.input_ids,
+                                                                config, params,
+                                                                reuse=reuse)
             params.embeddings = embeddings
             for feat in config.l1_list:
                 self.l1_norm += L1L2_norm(params.embeddings[feat])
@@ -441,55 +428,35 @@ class CRF:
                 params.b_conv = b_conv
                 if config.verbose:
                     print('convolution layer done')
-
+            out_layer = gating_layer(out_layer, direct_emb, config)
             self.out_layer = out_layer
             ### SEQU-NN
             if config.nn_obj_weight > 0:
-                if config.crf_obj_weight > 0:
-                    (preds_layer, W_pred, b_pred, _) = predict_layer(out_layer,
-                                                                self.input_ids,
-                                                                config, params,
-                                                                reuse=reuse,
-                                                                direct=False)
-                else:
-                    (preds_layer, W_pred, b_pred, direct_un) = predict_layer(
-                                                                out_layer,
-                                                                self.input_ids,
-                                                                config, params,
-                                                                reuse=reuse,
-                                                                direct=True)
-                    params.direct_un = direct_un
+                (preds_layer, W_pred, b_pred) = predict_layer(out_layer,
+                                                              config, params,
+                                                              reuse=reuse)
                 params.W_pred = W_pred
                 params.b_pred = b_pred
                 self.preds_layer = preds_layer
                 (cross_entropy, accu_nn) = optim_outputs(preds_layer,
-                                                          self.nn_targets,
-                                                          config, params)
+                                                         self.nn_targets,
+                                                         config, params)
                 self.accuracy = accu_nn
                 self.map_tagging = self.preds_layer
             ### CRF
             if config.crf_obj_weight > 0:
                 # potentials
-                (bin_pots, W_p_b, b_p_b, direct_bin) = binary_log_pots(
-                                                        out_layer,
-                                                        self.input_ids, config,
-                                                        params, reuse=reuse)
+                (bin_pots, W_p_b, b_p_b) = binary_log_pots(out_layer, config,
+                                                           params, reuse=reuse)
                 params.W_pot_bin = W_p_b
                 params.b_pot_bin = b_p_b
-                params.direct_bin = direct_bin
-                (un_pots, W_p_u, b_p_u, direct_un) = unary_log_pots(out_layer,
-                                                        self.input_ids,
-                                                        self.mask, config,
-                                                        params, reuse=reuse)
+                (un_pots, W_p_u, b_p_u) = unary_log_pots(out_layer,
+                                                         self.mask, config,
+                                                         params, reuse=reuse)
                 self.unary_pots = un_pots
                 self.binary_pots = bin_pots
                 params.W_pot_un = W_p_u
                 params.b_pot_un = b_p_u
-                params.direct_un = direct_un
-                for param in params.direct_un.values():
-                    self.l1_direct_norm += L1_norm(param)
-                for param in params.direct_bin.values():
-                    self.l1_direct_norm += L1_norm(param)
                 pots_layer = log_pots(un_pots, bin_pots, config, params)
                 if config.verbose:
                     print('potentials layer done')
@@ -528,12 +495,11 @@ class CRF:
             ### OPTIMIZATION
             # different criteria
             self.criteria = {}
-            self.criteria['likelihood'] = config.l1_reg * self.l1_norm
+            self.criteria['likelihood'] = (config.l1_reg * self.l1_norm)
             for k in self.criteria:
                 if config.crf_obj_weight > 0:
-                    self.criteria[k] -= config.crf_obj_weight * \
-                                (self.log_likelihood - config.l1_direct_reg * \
-                                 self.l1_direct_norm)
+                    self.criteria[k] -= (config.crf_obj_weight * \
+                                         self.log_likelihood)
                 if config.nn_obj_weight > 0:
                     self.criteria[k] -= (config.nn_obj_weight * cross_entropy)
             # corresponding training steps, gradient clipping
