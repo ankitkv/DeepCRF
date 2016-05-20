@@ -143,14 +143,14 @@ def gating_layer(in_layer, in_direct, config):
                                   name='in_forget'), config.param_clip)
     b_in_forget = tf.clip_by_norm(bias_variable([input_size],
                                   name='in_forget'), config.param_clip)
-    W_dir_forget = tf.clip_by_norm(weight_variable([direct_size, input_size],
-                                   name='dir_forget'), config.param_clip)
-    b_dir_forget = tf.clip_by_norm(bias_variable([input_size],
-                                   name='dir_forget'), config.param_clip)
-    W_in_update = tf.clip_by_norm(weight_variable([input_size, input_size],
-                                  name='in_update'), config.param_clip)
-    b_in_update = tf.clip_by_norm(bias_variable([input_size],
-                                  name='in_update'), config.param_clip)
+#    W_dir_forget = tf.clip_by_norm(weight_variable([direct_size, input_size],
+#                                   name='dir_forget'), config.param_clip)
+#    b_dir_forget = tf.clip_by_norm(bias_variable([input_size],
+#                                   name='dir_forget'), config.param_clip)
+#    W_in_update = tf.clip_by_norm(weight_variable([input_size, input_size],
+#                                  name='in_update'), config.param_clip)
+#    b_in_update = tf.clip_by_norm(bias_variable([input_size],
+#                                  name='in_update'), config.param_clip)
     W_dir_update = tf.clip_by_norm(weight_variable([direct_size, input_size],
                                    name='dir_update'), config.param_clip)
     b_dir_update = tf.clip_by_norm(bias_variable([input_size],
@@ -158,12 +158,16 @@ def gating_layer(in_layer, in_direct, config):
     flat_input = tf.reshape(in_layer, [-1, input_size])
     flat_direct = tf.reshape(in_direct, [-1, direct_size])
     in_forget = tf.matmul(flat_input, W_in_forget) + b_in_forget
-    dir_forget = tf.matmul(flat_direct, W_dir_forget) + b_dir_forget
-    in_update = tf.matmul(flat_input, W_in_update) + b_in_update
+#    dir_forget = tf.matmul(flat_direct, W_dir_forget) + b_dir_forget
+#    in_update = tf.matmul(flat_input, W_in_update) + b_in_update
     dir_update = tf.matmul(flat_direct, W_dir_update) + b_dir_update
-    forget = tf.reshape(tf.nn.sigmoid(in_forget + dir_forget),
+#    forget = tf.reshape(tf.nn.sigmoid(in_forget + dir_forget),
+#                        [batch_size, -1, input_size])
+#    update = tf.reshape(tf.nn.relu(in_update) + tf.nn.relu(dir_update),
+#                        [batch_size, -1, input_size])
+    forget = tf.reshape(tf.nn.sigmoid(in_forget),
                         [batch_size, -1, input_size])
-    update = tf.reshape(tf.nn.relu(in_update) + tf.nn.relu(dir_update),
+    update = tf.reshape(tf.nn.relu(dir_update),
                         [batch_size, -1, input_size])
     gated_layer = tf.add(tf.mul(in_layer, forget), update)
     return gated_layer
