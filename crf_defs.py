@@ -412,7 +412,7 @@ class CRF:
             # initial embedding
             (out_layer, direct_emb, embeddings) = feature_layer(self.input_ids,
                                                                 config, params,
-                                                                name='emb'
+                                                                name='emb',
                                                                 reuse=reuse)
             params.embeddings = embeddings
             for feat in config.l1_list:

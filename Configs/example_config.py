@@ -49,6 +49,10 @@ config.conv_dropout = [True, True, True]
 
 config.direct_window_size = 3
 
+config.binclf_window_size = 5
+# TODO experiment with only the B's
+config.binclf_tags = set(['B', 'Bp', 'I', 'Ip', 'In', 'ID'])
+
 config.l1_list = [f for f in
         ('word', 'lemma', 'normal', 'prefix', 'suffix', 'med_prefix')
     if f in input_features]

@@ -160,6 +160,31 @@ class Batch:
         #                                                   config.n_tags + 3
         self.tag_neighbours_lin = []
         # mask: <P> -> 0, everything else -> 1
+
+    def make_binclf_labels(self, config, tags):
+        labels = []
+        window = config.binclf_window_size // 2
+        for in_sentence in tags:
+            sentence = ([None] * window) + in_sentence + ([None] * window)
+            sent_labels = []
+            for i in range(window, len(sentence) - window):
+                found = False
+                for j in range(-window, window+1):
+                    pos = i + j
+                    if sentence[pos]:
+                        tag = config.tag_list[sentence[pos]]
+                    else:
+                        tag = None
+                    if tag in config.binclf_tags:
+                        found = True
+                        break
+                if found:
+                    sent_labels.append(1)
+                else:
+                    sent_labels.append(0)
+            labels.append(sent_labels)
+        return labels
+
     def read(self, data, start, config, fill=False):
         num_features = len(config.input_features)
         batch_data = data[start:start + config.batch_size]
@@ -200,6 +225,7 @@ class Batch:
                                               self.tag_windows_one_hot[i] + \
                                               [[0] * config.n_outcomes] * \
                                               post_len
+        self.binclf_labels = self.make_binclf_labels(config, self.tags)
         mid = config.pot_size - 1
         padded_tags = [[0] * mid + sentence + [0] * mid
                        for sentence in self.tags]
