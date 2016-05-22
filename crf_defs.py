@@ -48,7 +48,7 @@ def bias_variable(shape, name='weight'):
 ###################################
 # NN layers                       #
 ###################################
-def feature_layer(in_layer, config, params, reuse=False):
+def feature_layer(in_layer, config, params, name, reuse=False):
     in_features = config.input_features
     features_dim = config.features_dim
     batch_size = config.batch_size
@@ -70,24 +70,25 @@ def feature_layer(in_layer, config, params, reuse=False):
                 embeddings = \
                       tf.Variable(tf.convert_to_tensor(param_dic[feat],
                                                        dtype=tf.float32),
-                                  name=feat + '_embedding',
+                                  name=name+'_'+feat+'_embedding',
                                   trainable=False)
                 initial = tf.truncated_normal([int(embeddings.get_shape()[1]),
                                                features_dim], stddev=0.1)
                 transform_matrix = tf.Variable(initial,
-                                               name=feat + '_transform')
+                                               name=name+'_'+feat+'_transform')
                 clipped_transform = tf.clip_by_norm(transform_matrix,
                                                     config.param_clip)
                 param_vars[feat] = tf.matmul(embeddings, clipped_transform)
             else:
                 shape = [len(feature_mappings[feat]['reverse']), dim]
                 initial = tf.truncated_normal(shape, stddev=0.1)
-                emb_matrix = tf.Variable(initial, name=feat + '_embedding')
+                emb_matrix = tf.Variable(initial,
+                                         name=name+'_'+feat+'_embedding')
                 param_vars[feat] = emb_matrix
                 ids = tf.slice(input_ids, [0, 0, i], [-1, -1, 1])
                 embedding = tf.squeeze(tf.nn.embedding_lookup(emb_matrix, ids,
-                                                        name=feat + '_lookup'),
-                                       [2], name=feat + '_squeeze')
+                                                 name=name+'_'+feat+'_lookup'),
+                                       [2], name=name+'_'+feat+'_squeeze')
                 if feat in config.direct_features:
                     direct_embeddings.append(embedding)
                 else:
@@ -110,7 +111,7 @@ def distance_dependent(in_layer, config, params, reuse=False):
 
 
 
-def convo_layer(in_layer, config, params, i, reuse=False, name='Convo'):
+def convo_layer(in_layer, config, params, i, name, reuse=False):
     conv_window = config.conv_window[i]
     output_size = config.conv_dim[i]
     batch_size = config.batch_size # int(in_layer.get_shape()[0])
@@ -135,38 +136,38 @@ def convo_layer(in_layer, config, params, i, reuse=False, name='Convo'):
 
 
 # TODO save params and make reusable
-def gating_layer(in_layer, in_direct, config):
+def gating_layer(in_layer, in_direct, config, name):
     batch_size = config.batch_size
     input_size = int(in_layer.get_shape()[2])
     direct_size = int(in_direct.get_shape()[2])
     W_in_forget = tf.clip_by_norm(weight_variable([input_size, input_size],
-                                  name='in_forget'), config.param_clip)
+                                  name=name+'_in_forget'), config.param_clip)
     b_in_forget = tf.clip_by_norm(bias_variable([input_size],
-                                  name='in_forget'), config.param_clip)
-#    W_dir_forget = tf.clip_by_norm(weight_variable([direct_size, input_size],
-#                                   name='dir_forget'), config.param_clip)
-#    b_dir_forget = tf.clip_by_norm(bias_variable([input_size],
-#                                   name='dir_forget'), config.param_clip)
+                                  name=name+'_in_forget'), config.param_clip)
+    W_dir_forget = tf.clip_by_norm(weight_variable([direct_size, input_size],
+                                   name=name+'_dir_forget'), config.param_clip)
+    b_dir_forget = tf.clip_by_norm(bias_variable([input_size],
+                                   name=name+'_dir_forget'), config.param_clip)
 #    W_in_update = tf.clip_by_norm(weight_variable([input_size, input_size],
-#                                  name='in_update'), config.param_clip)
+#                                  name=name+'_in_update'), config.param_clip)
 #    b_in_update = tf.clip_by_norm(bias_variable([input_size],
-#                                  name='in_update'), config.param_clip)
+#                                  name=name+'_in_update'), config.param_clip)
     W_dir_update = tf.clip_by_norm(weight_variable([direct_size, input_size],
-                                   name='dir_update'), config.param_clip)
+                                   name=name+'_dir_update'), config.param_clip)
     b_dir_update = tf.clip_by_norm(bias_variable([input_size],
-                                   name='dir_update'), config.param_clip)
+                                   name=name+'_dir_update'), config.param_clip)
     flat_input = tf.reshape(in_layer, [-1, input_size])
     flat_direct = tf.reshape(in_direct, [-1, direct_size])
     in_forget = tf.matmul(flat_input, W_in_forget) + b_in_forget
-#    dir_forget = tf.matmul(flat_direct, W_dir_forget) + b_dir_forget
+    dir_forget = tf.matmul(flat_direct, W_dir_forget) + b_dir_forget
 #    in_update = tf.matmul(flat_input, W_in_update) + b_in_update
     dir_update = tf.matmul(flat_direct, W_dir_update) + b_dir_update
-#    forget = tf.reshape(tf.nn.sigmoid(in_forget + dir_forget),
-#                        [batch_size, -1, input_size])
+    forget = tf.reshape(tf.nn.sigmoid(in_forget + dir_forget),
+                        [batch_size, -1, input_size])
 #    update = tf.reshape(tf.nn.relu(in_update) + tf.nn.relu(dir_update),
 #                        [batch_size, -1, input_size])
-    forget = tf.reshape(tf.nn.sigmoid(in_forget),
-                        [batch_size, -1, input_size])
+#    forget = tf.reshape(tf.nn.sigmoid(in_forget),
+#                        [batch_size, -1, input_size])
     update = tf.reshape(tf.nn.relu(dir_update),
                         [batch_size, -1, input_size])
     gated_layer = tf.add(tf.mul(in_layer, forget), update)
@@ -411,6 +412,7 @@ class CRF:
             # initial embedding
             (out_layer, direct_emb, embeddings) = feature_layer(self.input_ids,
                                                                 config, params,
+                                                                name='emb'
                                                                 reuse=reuse)
             params.embeddings = embeddings
             for feat in config.l1_list:
@@ -421,8 +423,8 @@ class CRF:
             if config.use_convo:
                 for i in range(len(config.conv_window)):
                     (out_layer, W_conv, b_conv) = convo_layer(out_layer,
-                                                              config,
-                                                              params, i)
+                                                            config, params, i,
+                                                            name='conv'+str(i))
                     out_layer = tf.nn.relu(out_layer)
                     # XXX: does this really help?
                     if config.conv_dropout[i]:
@@ -432,7 +434,8 @@ class CRF:
                 params.b_conv = b_conv
                 if config.verbose:
                     print('convolution layer done')
-            out_layer = gating_layer(out_layer, direct_emb, config)
+            out_layer = gating_layer(out_layer, direct_emb, config,
+                                     name='gating')
             self.out_layer = out_layer
             ### SEQU-NN
             if config.nn_obj_weight > 0:
