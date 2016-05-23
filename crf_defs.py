@@ -109,14 +109,14 @@ def distance_dependent(in_layer, config, params, reuse=False):
 
 
 
-def convo_layer(in_layer, config, params, i, net, name, reuse=False):
-    conv_window = config.conv_window[net][i]
-    output_size = config.conv_dim[net][i]
+def convo_layer(in_layer, config, params, i, name, reuse=False):
+    conv_window = config.conv_window[i]
+    output_size = config.conv_dim[i]
     batch_size = config.batch_size # int(in_layer.get_shape()[0])
     if i == 0:
         input_size = config.features_dim #int(in_layer.get_shape()[2])
     else:
-        input_size = config.conv_dim[net][i-1]
+        input_size = config.conv_dim[i-1]
     if reuse:
         tf.get_variable_scope().reuse_variables()
         W_conv = params.W_conv
@@ -427,51 +427,31 @@ class CRF:
             if reuse:
                 tf.get_variable_scope().reuse_variables()
             # initial embedding
-            (out_layer1, direct_emb1, embeddings1) = feature_layer(
-                                                                self.input_ids,
+            (out_layer, direct_emb, embeddings) = feature_layer(self.input_ids,
                                                                 config, params,
-                                                                name='emb1',
+                                                                name='emb',
                                                                 reuse=reuse)
-            (out_layer2, direct_emb2, embeddings2) = feature_layer(
-                                                                self.input_ids,
-                                                                config, params,
-                                                                name='emb2',
-                                                                reuse=reuse)
-            params.embeddings1 = embeddings1
-            params.embeddings2 = embeddings2
+            params.embeddings = embeddings
             for feat in config.l1_list:
-                self.l1_norm += L1L2_norm(params.embeddings1[feat])
-                self.l1_norm += L1L2_norm(params.embeddings2[feat])
+                self.l1_norm += L1L2_norm(params.embeddings[feat])
             if config.verbose:
                 print('features layer done')
             # convolution
             if config.use_convo:
-                for i in range(len(config.conv_window[0])):
-                    (out_layer1, _, _) = convo_layer(out_layer1, config,
-                                                     params, i, 0,
-                                                     name='conv1'+str(i))
-                    out_layer1 = tf.nn.relu(out_layer1)
-                    if config.conv_dropout[0][i]:
-                        out_layer1 = tf.nn.dropout(out_layer1, self.keep_prob)
-                for i in range(len(config.conv_window[1])):
-                    (out_layer2, W_conv, b_conv) = convo_layer(out_layer2,
-                                                           config, params, i,1,
-                                                           name='conv2'+str(i))
-                    out_layer2 = tf.nn.relu(out_layer2)
-                    if config.conv_dropout[1][i]:
-                        out_layer2 = tf.nn.dropout(out_layer2, self.keep_prob)
+                for i in range(len(config.conv_window)):
+                    (out_layer, W_conv, b_conv) = convo_layer(out_layer,
+                                                            config, params, i,
+                                                            name='conv'+str(i))
+                    out_layer = tf.nn.relu(out_layer)
+                    if config.conv_dropout[i]:
+                        out_layer = tf.nn.dropout(out_layer, self.keep_prob)
+
                 params.W_conv = W_conv
                 params.b_conv = b_conv
                 if config.verbose:
                     print('convolution layer done')
-            out_layer1 = gating_layer(out_layer1, direct_emb1, config,
-                                      name='gating1')
-            out_layer2 = gating_layer(out_layer2, direct_emb2, config,
-                                      name='gating2')
-            (out_layer1, binclf_loss) = binclf_layer(out_layer1,
-                                                    self.binclf_labels, config)
-            out_layer2 = out_layer2 * out_layer1
-            out_layer = out_layer2
+            out_layer = gating_layer(out_layer, direct_emb, config,
+                                     name='gating')
             self.out_layer = out_layer
             ### SEQU-NN
             if config.nn_obj_weight > 0:
@@ -538,9 +518,7 @@ class CRF:
             ### OPTIMIZATION
             # different criteria
             self.criteria = {}
-            self.binclf_loss = binclf_loss
-            self.criteria['likelihood'] = (config.l1_reg * self.l1_norm) - \
-                                          (config.binclf_weight * binclf_loss)
+            self.criteria['likelihood'] = (config.l1_reg * self.l1_norm)
             for k in self.criteria:
                 if config.crf_obj_weight > 0:
                     self.criteria[k] -= (config.crf_obj_weight * \
@@ -581,7 +559,6 @@ class CRF:
         total_crit = 0.
         total_l1 = 0.
         total_ll = 0.
-        total_binclf = 0.
         n_batches = len(data) / batch_size
         batch = Batch()
         for i in range(n_batches):
@@ -594,7 +571,6 @@ class CRF:
             total_crit += crit
             total_ll += self.log_likelihood.eval(feed_dict=f_dict)
             total_l1 += self.l1_norm.eval(feed_dict=f_dict)
-            total_binclf += self.binclf_loss.eval(feed_dict=f_dict)
             if config.verbose and i % 50 == 0:
                 train_accuracy = self.accuracy.eval(feed_dict=f_dict)
                 print("step %d of %d, training accuracy %f, criterion %f,"\
@@ -604,7 +580,6 @@ class CRF:
         print 'total crit', total_crit / n_batches
         print 'total ll', total_ll / n_batches
         print 'total l1', total_l1 / n_batches
-        print 'total binclf', total_binclf / n_batches
         return (total_crit / n_batches, total_l1 / n_batches)
     
     def validate_accuracy(self, data, config):
