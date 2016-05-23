@@ -56,18 +56,19 @@ config.binclf_tags = set(['B', 'Bp', 'I', 'Ip', 'In', 'ID'])
 config.l1_list = [f for f in
         ('word', 'lemma', 'normal', 'prefix', 'suffix', 'med_prefix')
     if f in input_features]
-config.l1_reg = 1e-2
-config.l1_direct_reg = 5e-3
+config.l1_reg = 5e-3
 
-config.dropout_keep_prob = 0.7
+config.dropout_keep_prob = 0.75
 
 config.learning_rate = 0.001
 
-config.gradient_clip = 50 #5
-config.param_clip = 250 #50
+config.gradient_clip = 5
+config.param_clip = 50
 
 config.num_epochs = 10
 config.patience_increase = 1.8
 
 config.optimizer = 'adam'
-config.batch_size = 25
+config.batch_size = 20
+
+config.verbose = True

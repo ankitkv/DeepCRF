@@ -1,7 +1,5 @@
 import tensorflow as tf
 import tensorflow.python.platform
-from tensorflow.models.rnn import rnn
-from tensorflow.models.rnn import rnn_cell
 import collections
 
 from utils import *
@@ -282,6 +280,23 @@ def log_pots(un_pots_layer, bin_pots_layer, config, params,
 ###################################
 
 
+def binclf_layer(in_layer, labels, config):
+    batch_size = config.batch_size
+    input_size = int(in_layer.get_shape()[2])
+    W_binclf = tf.clip_by_norm(weight_variable([input_size, 1], name='binclf'),
+                               config.param_clip)
+    b_binclf = tf.clip_by_norm(bias_variable([1], name='binclf'),
+                               config.param_clip)
+    flat_input = tf.reshape(in_layer, [-1, input_size])
+    transform = tf.matmul(flat_input, W_binclf) + b_binclf
+    out_layer = tf.reshape(tf.nn.sigmoid(transform),
+                           [batch_size, -1, 1])
+    labels = tf.expand_dims(tf.cast(labels, 'float'), -1)
+    cross_entropy = tf.reduce_sum(labels*tf.log(tf.maximum(out_layer, 1e-15)) \
+                    + (1 - labels) * tf.log(tf.maximum(1 - out_layer, 1e-15)))
+    return (out_layer, cross_entropy)
+
+
 # Takes a representation as input and returns predictions of tag windows
 def predict_layer(in_layer, config, params, reuse=False, name='Predict'):
     n_outcomes = config.n_outcomes
@@ -393,6 +408,8 @@ class CRF:
         self.tags = tf.placeholder(tf.int32)
         # targets <- batch.tags_one_hot
         self.targets = tf.placeholder(tf.float32)
+        # binclf_labels <- batch.binclf_labels
+        self.binclf_labels = tf.placeholder(tf.int32)
         # window_indices <- batch.tag_windows_lin
         self.window_indices = tf.placeholder(tf.int32)
         # nn_targets <- batch.tag_windows_one_hot
@@ -426,7 +443,6 @@ class CRF:
                                                             config, params, i,
                                                             name='conv'+str(i))
                     out_layer = tf.nn.relu(out_layer)
-                    # XXX: does this really help?
                     if config.conv_dropout[i]:
                         out_layer = tf.nn.dropout(out_layer, self.keep_prob)
 
@@ -542,6 +558,7 @@ class CRF:
         # TODO: gradient clipping
         total_crit = 0.
         total_l1 = 0.
+        total_ll = 0.
         n_batches = len(data) / batch_size
         batch = Batch()
         for i in range(n_batches):
@@ -552,6 +569,7 @@ class CRF:
             train_step.run(feed_dict=f_dict)
             crit = criterion.eval(feed_dict=f_dict)
             total_crit += crit
+            total_ll += self.log_likelihood.eval(feed_dict=f_dict)
             total_l1 += self.l1_norm.eval(feed_dict=f_dict)
             if config.verbose and i % 50 == 0:
                 train_accuracy = self.accuracy.eval(feed_dict=f_dict)
@@ -560,6 +578,8 @@ class CRF:
                       (i, n_batches, train_accuracy, crit,
                        self.log_likelihood.eval(feed_dict=f_dict)))
         print 'total crit', total_crit / n_batches
+        print 'total ll', total_ll / n_batches
+        print 'total l1', total_l1 / n_batches
         return (total_crit / n_batches, total_l1 / n_batches)
     
     def validate_accuracy(self, data, config):

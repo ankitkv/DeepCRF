@@ -159,4 +159,5 @@ if __name__ == "__main__":
         dropout = float(args.dropout)
         print 'Using the provided keep_prob value of', dropout
         config.dropout_keep_prob = dropout
-    main()
+    with tf.Graph().as_default():
+        main()

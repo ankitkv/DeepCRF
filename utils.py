@@ -348,6 +348,7 @@ def make_feed_crf(model, batch, keep_prob):
               model.mask: batch.mask,
               model.targets: batch.tags_one_hot,
               model.tags: batch.tags,
+              model.binclf_labels: batch.binclf_labels,
               model.nn_targets: batch.tag_windows_one_hot,
               model.keep_prob: keep_prob}
     return f_dict
@@ -417,15 +418,14 @@ def tag_dataset(pre_data, config, params, model):
         if i % 100 == 0 and config.verbose:
             print 'making features', i, 'of', len(data) / batch_size
         n_words = len(batch.features[0])
-        sess = tf.get_default_session()
         f_dict = make_feed_crf(model, batch, 1.0)
         if config.crf_obj_weight > 0:
             preds_layer = tf.argmax(model.map_tagging, 2)
-            preds_layer_output, un_pots_output, bin_pots_output = sess.run(
-                            [preds_layer, model.unary_pots, model.binary_pots],
-                            feed_dict=f_dict)
+            preds_layer_output = preds_layer.eval(feed_dict=f_dict)
+            un_pots_output = model.unary_pots.eval(feed_dict=f_dict)
+            bin_pots_output = model.binary_pots.eval(feed_dict=f_dict)
         else:
-            scores = sess.run(model.map_tagging, feed_dict=f_dict)
+            scores = model.map_tagging.eval(feed_dict=f_dict)
             preds_layer_output = best_tagging(config, scores)
             un_pots_output = [None] * len(list(preds_layer_output))
             bin_pots_output = [None] * len(list(preds_layer_output))
@@ -436,6 +436,8 @@ def tag_dataset(pre_data, config, params, model):
         res += tmp_preds
         un_pots += list(un_pots_output)
         bin_pots += list(bin_pots_output)
+    if config.verbose:
+        print 'done processing sentences'
     # re-order data
     res = res[:len(pre_data)]
     un_pots = un_pots[:len(pre_data)]
@@ -581,6 +583,8 @@ def tags_to_mentions(tagging):
 
 
 def preds_to_sentences(model_preds, config):
+    if config.verbose:
+        print 'Preds to sentences'
     res = []
     for (pred, full, un_pots, bin_pots) in model_preds:
         found = tags_to_mentions([config.tag_list[x[1]] for x in pred])
