@@ -64,7 +64,7 @@ def main():
     writer = tf.train.SummaryWriter(log_dir, sess.graph)
 
     sess.run(tf.initialize_all_variables())
-    embeddings_saver = tf.train.Saver(params_crf.embeddings)
+    #embeddings_saver = tf.train.Saver(params_crf.embeddings)
 
     # (accuracies, preds) = train_model(train_data, dev_data, crf, config,
     #                                                       params_crf)
@@ -127,8 +127,8 @@ def main():
             best_train_f1 = train_f1
             best_test_f1 = test_f1
             write_visualization(visualization)
-            embeddings_saver.save(sess, embeddings_file)
-            print 'Wrote embeddings to', embeddings_file
+            #embeddings_saver.save(sess, embeddings_file)
+            #print 'Wrote embeddings to', embeddings_file
         print 'best dev F1 is:', best_f1
         print ' with train F1:', best_train_f1
         print '   and test F1:', best_test_f1

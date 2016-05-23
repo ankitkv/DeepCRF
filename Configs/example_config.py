@@ -43,13 +43,17 @@ config = Config(input_features=input_features, direct_features=direct_features,
                 tag_list=tag_list, crf_obj_weight=crf_obj_weight,
                 nn_obj_weight=nn_obj_weight)
 
-config.conv_dim = [80,400,900]
-config.conv_window = [5,5,1]
-config.conv_dropout = [True, True, True]
+config.conv_dim = [[40,150,400],
+                   [40,150,400]]
+config.conv_window = [[5,5,1],
+                      [5,5,1]]
+config.conv_dropout = [[True, True, True],
+                       [True, True, True]]
 
 config.direct_window_size = 3
 
 config.binclf_window_size = 5
+config.binclf_weight = 1.0
 # TODO experiment with only the B's
 config.binclf_tags = set(['B', 'Bp', 'I', 'Ip', 'In', 'ID'])
 

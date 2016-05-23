@@ -207,8 +207,10 @@ class Batch:
                                      for label in sentence]
                                     for sentence in batch_labels]
         if fill:
-            max_len = max(sum(config.conv_window) - len(config.conv_window)+1,
-                          max([len(sentence) for sentence in batch_data]) + 2)
+            max_len = \
+                max(sum(config.conv_window[0]) - len(config.conv_window[0])+1,
+                    sum(config.conv_window[1]) - len(config.conv_window[1])+1,
+                    max([len(sentence) for sentence in batch_data]) + 2)
             for i in range(config.batch_size):
                 current_len = len(batch_data[i])
                 pre_len = (max_len - current_len) / 2
@@ -252,11 +254,12 @@ class Batch:
 
 
 class Parameters:
-    def __init__(self, init={}, emb={}, w_c=False, b_c=False, w_p=False,
-                 b_p=False, w_po=False, b_po=False, w_po_b=False, b_po_b=False,
-                 w_po_u=False, b_po_u=False):
+    def __init__(self, init={}, emb1={}, emb2={}, w_c=False, b_c=False,
+                 w_p=False, b_p=False, w_po=False, b_po=False, w_po_b=False,
+                 b_po_b=False, w_po_u=False, b_po_u=False):
         self.init_dic = init
-        self.embeddings = emb
+        self.embeddings1 = emb1
+        self.embeddings2 = emb2
         self.W_conv = w_c
         self.b_conv = b_c
         self.W_pred = w_p
