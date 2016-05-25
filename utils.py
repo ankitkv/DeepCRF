@@ -162,28 +162,31 @@ class Batch:
         # mask: <P> -> 0, everything else -> 1
 
     def make_binclf_labels(self, config, tags):
-        labels = []
-        window = config.binclf_window_size // 2
-        for in_sentence in tags:
-            sentence = ([None] * window) + in_sentence + ([None] * window)
-            sent_labels = []
-            for i in range(window, len(sentence) - window):
-                found = False
-                for j in range(-window, window+1):
-                    pos = i + j
-                    if sentence[pos]:
-                        tag = config.tag_list[sentence[pos]]
+        binclf_labels = []
+        for w_size in config.binclf_window_size:
+            labels = []
+            window = w_size // 2
+            for in_sentence in tags:
+                sentence = ([None] * window) + in_sentence + ([None] * window)
+                sent_labels = []
+                for i in range(window, len(sentence) - window):
+                    found = False
+                    for j in range(-window, window+1):
+                        pos = i + j
+                        if sentence[pos]:
+                            tag = config.tag_list[sentence[pos]]
+                        else:
+                            tag = None
+                        if tag in config.binclf_tags:
+                            found = True
+                            break
+                    if found:
+                        sent_labels.append(1)
                     else:
-                        tag = None
-                    if tag in config.binclf_tags:
-                        found = True
-                        break
-                if found:
-                    sent_labels.append(1)
-                else:
-                    sent_labels.append(0)
-            labels.append(sent_labels)
-        return labels
+                        sent_labels.append(0)
+                labels.append(sent_labels)
+            binclf_labels.append(labels)
+        return binclf_labels
 
     def read(self, data, start, config, fill=False):
         num_features = len(config.input_features)

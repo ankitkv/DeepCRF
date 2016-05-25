@@ -280,7 +280,7 @@ def log_pots(un_pots_layer, bin_pots_layer, config, params,
 ###################################
 
 
-def binclf_layer(in_layer, labels, config):
+def binclf_layer(in_layer, labels, config, index):
     batch_size = config.batch_size
     input_size = int(in_layer.get_shape()[2])
     W_binclf = tf.clip_by_norm(weight_variable([input_size, 1], name='binclf'),
@@ -290,9 +290,11 @@ def binclf_layer(in_layer, labels, config):
     flat_input = tf.reshape(in_layer, [-1, input_size])
     transform = tf.matmul(flat_input, W_binclf) + b_binclf
     out_layer = tf.reshape(tf.nn.sigmoid(transform), [batch_size, -1, 1])
-    labels = tf.expand_dims(tf.cast(labels, 'float'), -1)
+    labels = tf.cast(labels, 'float')
+    labels = tf.squeeze(tf.slice(labels, [index, 0, 0], [1, -1, -1]), [0])
+    labels = tf.expand_dims(labels, -1)
     cross_entropy = tf.reduce_mean(labels*tf.log(tf.maximum(out_layer, 1e-15))\
-                     + (1 - labels) * tf.log(tf.maximum(1 - out_layer, 1e-15)))
+                     + (1. - labels)*tf.log(tf.maximum(1. - out_layer, 1e-15)))
     return (out_layer, cross_entropy)
 
 
@@ -444,13 +446,18 @@ class CRF:
                     out_layer = tf.nn.relu(out_layer)
                     if config.conv_dropout[i]:
                         out_layer = tf.nn.dropout(out_layer, self.keep_prob)
-
                 params.W_conv = W_conv
                 params.b_conv = b_conv
                 if config.verbose:
                     print('convolution layer done')
             out_layer = gating_layer(out_layer, direct_emb, config,
                                      name='gating')
+            self.binclf_output = []
+            self.binclf_ce = []
+            for i in range(len(config.binclf_window_size)):
+                out,ce = binclf_layer(out_layer, self.binclf_labels, config, i)
+                self.binclf_output.append(out)
+                self.binclf_ce.append(ce)
             self.out_layer = out_layer
             ### SEQU-NN
             if config.nn_obj_weight > 0:
@@ -519,6 +526,9 @@ class CRF:
             self.criteria = {}
             self.criteria['likelihood'] = (config.l1_reg * self.l1_norm)
             for k in self.criteria:
+                for i in range(len(config.binclf_weight)):
+                    self.criteria[k] -= (config.binclf_weight[i] * \
+                                         self.binclf_ce[i])
                 if config.crf_obj_weight > 0:
                     self.criteria[k] -= (config.crf_obj_weight * \
                                          self.log_likelihood)
@@ -558,6 +568,7 @@ class CRF:
         total_crit = 0.
         total_l1 = 0.
         total_ll = 0.
+        total_binclf = [0. for i in config.binclf_weight]
         n_batches = len(data) / batch_size
         batch = Batch()
         for i in range(n_batches):
@@ -570,6 +581,8 @@ class CRF:
             total_crit += crit
             total_ll += self.log_likelihood.eval(feed_dict=f_dict)
             total_l1 += self.l1_norm.eval(feed_dict=f_dict)
+            for j, binclf_ce in enumerate(self.binclf_ce):
+                total_binclf[j] += binclf_ce.eval(feed_dict=f_dict)
             if config.verbose and i % 50 == 0:
                 train_accuracy = self.accuracy.eval(feed_dict=f_dict)
                 print("step %d of %d, training accuracy %f, criterion %f,"\
@@ -579,26 +592,85 @@ class CRF:
         print 'total crit', total_crit / n_batches
         print 'total ll', total_ll / n_batches
         print 'total l1', total_l1 / n_batches
+        print 'total binclf', np.array(total_binclf) / n_batches
         return (total_crit / n_batches, total_l1 / n_batches)
-    
+
+    def binclf_stats(self, f_dict, config):
+        binclf_labels = np.array(f_dict[self.binclf_labels], np.int)
+        stats = []
+        for i in range(len(config.binclf_window_size)):
+            labels = binclf_labels[i]
+            output = self.binclf_output[i]
+            preds = tf.squeeze(output, [-1]).eval(feed_dict=f_dict)
+            preds = np.minimum((preds * 2.).astype(np.int), 1)
+            tp = np.sum((labels + preds) == 2)
+            fp = np.sum((labels - preds) == -1)
+            tn = np.sum((labels + preds) == 0)
+            fn = np.sum((labels - preds) == 1)
+            stats.append((tp, fp, tn, fn))
+        return stats
+
     def validate_accuracy(self, data, config):
         batch_size = config.batch_size
         batch = Batch()
         total_accuracy = 0.
         total_ll = 0.
+        total_l1 = 0.
+        total_binclf = [0. for i in config.binclf_weight]
+        total_tp = [0. for i in config.binclf_window_size]
+        total_fp = [0. for i in config.binclf_window_size]
+        total_tn = [0. for i in config.binclf_window_size]
+        total_fn = [0. for i in config.binclf_window_size]
         total = 0.
         for i in range(len(data) / batch_size):
             batch.read(data, i * batch_size, config, fill=True)
             f_dict = make_feed_crf(self, batch, 1.0)
-            dev_accuracy = self.accuracy.eval(feed_dict=f_dict)
-            total_accuracy += dev_accuracy
+            total_accuracy += self.accuracy.eval(feed_dict=f_dict)
             if config.crf_obj_weight > 0:
-                ll = self.log_likelihood.eval(feed_dict=f_dict)
-                total_ll += ll
+                total_ll += self.log_likelihood.eval(feed_dict=f_dict)
+            total_l1 += self.l1_norm.eval(feed_dict=f_dict)
+            for j, binclf_ce in enumerate(self.binclf_ce):
+                total_binclf[j] += binclf_ce.eval(feed_dict=f_dict)
             total += 1
+            stats = self.binclf_stats(f_dict, config)
+            for j, stat in enumerate(stats):
+                total_tp[j] += stat[0]
+                total_fp[j] += stat[1]
+                total_tn[j] += stat[2]
+                total_fn[j] += stat[3]
             if i % 100 == 0 and config.verbose:
-                print("%d of %d: \t map acc: %f \t ll:  %f" % \
-                      (i, len(data) / batch_size,
-                      total_accuracy / total, total_ll / total))
+                print("%d of %d: \t map acc: %f \t ll:  %f \t l1:  %f \t " \
+                      "binclf:  %s" % (i, len(data) / batch_size,
+                      total_accuracy / total, total_ll / total,
+                      total_l1 / total, str(np.array(total_binclf) / total)))
+        if config.verbose:
+            for i in range(len(config.binclf_window_size)):
+                if total_tp[i] + total_tn[i] + total_fp[i] + total_fn[i] > 0.:
+                    acc = ((total_tp[i] + total_tn[i]) / (total_tp[i] + \
+                                      total_tn[i] + total_fp[i] + total_fn[i]))
+                else:
+                    acc = 0.0
+                if total_tp[i] + total_fp[i] > 0.:
+                    prec = total_tp[i] / (total_tp[i] + total_fp[i])
+                else:
+                    prec = 0.0
+                if total_tp[i] + total_fn[i] > 0.:
+                    recall = total_tp[i] / (total_tp[i] + total_fn[i])
+                else:
+                    recall = 0.0
+                if prec + recall > 0.:
+                    f1 = 2. * (prec * recall) / (prec + recall)
+                else:
+                    f1 = 0.0
+                w = config.binclf_window_size[i]
+                print 'binclf', w
+                print 'tp', int(total_tp[i]),
+                print '\t fp', int(total_fp[i]),
+                print '\t tn', int(total_tn[i]),
+                print '\t fn', int(total_fn[i]),
+                print '\t acc', acc,
+                print '\t prec', prec,
+                print '\t recall', recall,
+                print '\t f1', f1
         return (total_accuracy / total)
 
