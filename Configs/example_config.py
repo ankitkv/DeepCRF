@@ -36,23 +36,23 @@ direct_features = collections.OrderedDict({
                   'umls_match_tag_prefix': 'O', 'umls_match_tag_acro': 'O'
                   })
 
-crf_obj_weight = 1.0
+crf_obj_weight = -1
 nn_obj_weight = -1
 
 config = Config(input_features=input_features, direct_features=direct_features,
                 tag_list=tag_list, crf_obj_weight=crf_obj_weight,
                 nn_obj_weight=nn_obj_weight)
 
-config.conv_dim = [[70,180,400],
-                   [70,180,400]]
-config.conv_window = [[5,5,1],
-                      [5,5,1]]
-config.conv_dropout = [[True, True, True],
-                       [True, True, True]]
+config.conv_dim = [[70,200],
+                   [1]]
+config.conv_window = [[5,1],
+                      [1]]
+config.conv_dropout = [[True, True],
+                       [False]]
 
 config.direct_window_size = 3
 
-config.binclf_window_size = 9
+config.binclf_window_size = 5
 config.binclf_weight = 1.0
 # TODO experiment with only the B's
 config.binclf_tags = set(['B', 'Bp', 'I', 'Ip', 'In', 'ID'])
@@ -60,7 +60,7 @@ config.binclf_tags = set(['B', 'Bp', 'I', 'Ip', 'In', 'ID'])
 config.l1_list = [f for f in
         ('word', 'lemma', 'normal', 'prefix', 'suffix', 'med_prefix')
     if f in input_features]
-config.l1_reg = 5e-3
+config.l1_reg = 0.
 
 config.dropout_keep_prob = 0.75
 

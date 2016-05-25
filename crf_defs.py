@@ -431,16 +431,16 @@ class CRF:
                                                                 config, params,
                                                                 name='emb1',
                                                                 reuse=reuse)
-            (out_layer2, direct_emb2, embeddings2) = feature_layer(
-                                                                self.input_ids,
-                                                                config, params,
-                                                                name='emb2',
-                                                                reuse=reuse)
+#            (out_layer2, direct_emb2, embeddings2) = feature_layer(
+#                                                                self.input_ids,
+#                                                                config, params,
+#                                                                name='emb2',
+#                                                                reuse=reuse)
             params.embeddings1 = embeddings1
-            params.embeddings2 = embeddings2
+#            params.embeddings2 = embeddings2
             for feat in config.l1_list:
                 self.l1_norm += L1L2_norm(params.embeddings1[feat])
-                self.l1_norm += L1L2_norm(params.embeddings2[feat])
+#                self.l1_norm += L1L2_norm(params.embeddings2[feat])
             if config.verbose:
                 print('features layer done')
             # convolution
@@ -452,101 +452,102 @@ class CRF:
                     out_layer1 = tf.nn.relu(out_layer1)
                     if config.conv_dropout[0][i]:
                         out_layer1 = tf.nn.dropout(out_layer1, self.keep_prob)
-                for i in range(len(config.conv_window[1])):
-                    (out_layer2, W_conv, b_conv) = convo_layer(out_layer2,
-                                                           config, params, i,1,
-                                                           name='conv2'+str(i))
-                    out_layer2 = tf.nn.relu(out_layer2)
-                    if config.conv_dropout[1][i]:
-                        out_layer2 = tf.nn.dropout(out_layer2, self.keep_prob)
-                params.W_conv = W_conv
-                params.b_conv = b_conv
+#                for i in range(len(config.conv_window[1])):
+#                    (out_layer2, W_conv, b_conv) = convo_layer(out_layer2,
+#                                                           config, params, i,1,
+#                                                           name='conv2'+str(i))
+#                    out_layer2 = tf.nn.relu(out_layer2)
+#                    if config.conv_dropout[1][i]:
+#                        out_layer2 = tf.nn.dropout(out_layer2, self.keep_prob)
+#                params.W_conv = W_conv
+#                params.b_conv = b_conv
                 if config.verbose:
                     print('convolution layer done')
             out_layer1 = gating_layer(out_layer1, direct_emb1, config,
                                       name='gating1')
-            out_layer2 = gating_layer(out_layer2, direct_emb2, config,
-                                      name='gating2')
+#            out_layer2 = gating_layer(out_layer2, direct_emb2, config,
+#                                      name='gating2')
             (out_layer1, binclf_loss) = binclf_layer(out_layer1,
                                                     self.binclf_labels, config)
             self.binclf_output = out_layer1
-            out_layer2 = out_layer2 * out_layer1
-            out_layer = out_layer2
-            self.out_layer = out_layer
-            ### SEQU-NN
-            if config.nn_obj_weight > 0:
-                (preds_layer, W_pred, b_pred) = predict_layer(out_layer,
-                                                              config, params,
-                                                              reuse=reuse)
-                params.W_pred = W_pred
-                params.b_pred = b_pred
-                self.preds_layer = preds_layer
-                (cross_entropy, accu_nn) = optim_outputs(preds_layer,
-                                                         self.nn_targets,
-                                                         config, params)
-                self.accuracy = accu_nn
-                self.map_tagging = self.preds_layer
-            ### CRF
-            if config.crf_obj_weight > 0:
-                # potentials
-                (bin_pots, W_p_b, b_p_b) = binary_log_pots(out_layer, config,
-                                                           params, reuse=reuse)
-                params.W_pot_bin = W_p_b
-                params.b_pot_bin = b_p_b
-                (un_pots, W_p_u, b_p_u) = unary_log_pots(out_layer,
-                                                         self.mask, config,
-                                                         params, reuse=reuse)
-                self.unary_pots = un_pots
-                self.binary_pots = bin_pots
-                params.W_pot_un = W_p_u
-                params.b_pot_un = b_p_u
-                pots_layer = log_pots(un_pots, bin_pots, config, params)
-                if config.verbose:
-                    print('potentials layer done')
-                self.pots_layer = pots_layer
-                # log-likelihood, tensor to list
-                pots_list = tf.split(0, config.batch_size, self.pots_layer)
-                pots_list = [tf.squeeze(pots) for pots in pots_list]
-                tags_list = tf.split(0, config.batch_size, self.tags)
-                tags_list = [tf.squeeze(tags) for tags in tags_list]
-                args_list = zip(pots_list, tags_list)
-                # log-likelihood, dynamic programming
-                dynamic = [tf.user_ops.chain_sum_product(pots, tags)
-                           for pots, tags in args_list]
-                pre_crf_list = [(pots, tags, f_sp, b_sp, grads)
-                                for ((pots, tags), (f_sp, b_sp, grads))
-                                in zip(args_list, dynamic)]
-                crf_list = [tf.user_ops.chain_crf(pots, tags, f_sp,b_sp, grads)
-                            for (pots, tags, f_sp,b_sp, grads) in pre_crf_list]
-                # log-likelihood, compute
-                log_likelihoods = tf.pack([ll for (ll, marg) in crf_list])
-                log_likelihood = tf.reduce_sum(log_likelihoods)
-                self.log_likelihood = log_likelihood
-                self.marginals = tf.pack([marg for (ll, marg) in crf_list])
-                # map assignment and accuracy of map assignment
-                map_tagging = [tf.user_ops.chain_max_sum(pots, tags)
-                               for pots, tags in args_list]
-                map_tagging = tf.pack([tging
-                                       for f_ms, b_ms, tging in map_tagging])
-                correct_pred = tf.equal(tf.argmax(map_tagging, 2),
-                                        tf.argmax(self.targets, 2))
-                correct_pred = tf.cast(correct_pred, "float")
-                accuracy = tf.reduce_sum(correct_pred * \
-                    tf.reduce_sum(self.targets, 2))/tf.reduce_sum(self.targets)
-                self.map_tagging = map_tagging
-                self.accuracy = accuracy
-            ### OPTIMIZATION
-            # different criteria
+#            out_layer2 = out_layer2 * out_layer1
+#            out_layer = out_layer2
+#            self.out_layer = out_layer
+#            ### SEQU-NN
+#            if config.nn_obj_weight > 0:
+#                (preds_layer, W_pred, b_pred) = predict_layer(out_layer,
+#                                                              config, params,
+#                                                              reuse=reuse)
+#                params.W_pred = W_pred
+#                params.b_pred = b_pred
+#                self.preds_layer = preds_layer
+#                (cross_entropy, accu_nn) = optim_outputs(preds_layer,
+#                                                         self.nn_targets,
+#                                                         config, params)
+#                self.accuracy = accu_nn
+#                self.map_tagging = self.preds_layer
+#            ### CRF
+#            if config.crf_obj_weight > 0:
+#                # potentials
+#                (bin_pots, W_p_b, b_p_b) = binary_log_pots(out_layer, config,
+#                                                           params, reuse=reuse)
+#                params.W_pot_bin = W_p_b
+#                params.b_pot_bin = b_p_b
+#                (un_pots, W_p_u, b_p_u) = unary_log_pots(out_layer,
+#                                                         self.mask, config,
+#                                                         params, reuse=reuse)
+#                self.unary_pots = un_pots
+#                self.binary_pots = bin_pots
+#                params.W_pot_un = W_p_u
+#                params.b_pot_un = b_p_u
+#                pots_layer = log_pots(un_pots, bin_pots, config, params)
+#                if config.verbose:
+#                    print('potentials layer done')
+#                self.pots_layer = pots_layer
+#                # log-likelihood, tensor to list
+#                pots_list = tf.split(0, config.batch_size, self.pots_layer)
+#                pots_list = [tf.squeeze(pots) for pots in pots_list]
+#                tags_list = tf.split(0, config.batch_size, self.tags)
+#                tags_list = [tf.squeeze(tags) for tags in tags_list]
+#                args_list = zip(pots_list, tags_list)
+#                # log-likelihood, dynamic programming
+#                dynamic = [tf.user_ops.chain_sum_product(pots, tags)
+#                           for pots, tags in args_list]
+#                pre_crf_list = [(pots, tags, f_sp, b_sp, grads)
+#                                for ((pots, tags), (f_sp, b_sp, grads))
+#                                in zip(args_list, dynamic)]
+#                crf_list = [tf.user_ops.chain_crf(pots, tags, f_sp,b_sp, grads)
+#                            for (pots, tags, f_sp,b_sp, grads) in pre_crf_list]
+#                # log-likelihood, compute
+#                log_likelihoods = tf.pack([ll for (ll, marg) in crf_list])
+#                log_likelihood = tf.reduce_sum(log_likelihoods)
+#                self.log_likelihood = log_likelihood
+#                self.marginals = tf.pack([marg for (ll, marg) in crf_list])
+#                # map assignment and accuracy of map assignment
+#                map_tagging = [tf.user_ops.chain_max_sum(pots, tags)
+#                               for pots, tags in args_list]
+#                map_tagging = tf.pack([tging
+#                                       for f_ms, b_ms, tging in map_tagging])
+#                correct_pred = tf.equal(tf.argmax(map_tagging, 2),
+#                                        tf.argmax(self.targets, 2))
+#                correct_pred = tf.cast(correct_pred, "float")
+#                accuracy = tf.reduce_sum(correct_pred * \
+#                    tf.reduce_sum(self.targets, 2))/tf.reduce_sum(self.targets)
+#                self.map_tagging = map_tagging
+#                self.accuracy = accuracy
+#            ### OPTIMIZATION
+#            # different criteria
             self.criteria = {}
             self.binclf_loss = binclf_loss
+            self.accuracy = binclf_loss # TODO remove
             self.criteria['likelihood'] = (config.l1_reg * self.l1_norm) - \
                                           (config.binclf_weight * binclf_loss)
-            for k in self.criteria:
-                if config.crf_obj_weight > 0:
-                    self.criteria[k] -= (config.crf_obj_weight * \
-                                         self.log_likelihood)
-                if config.nn_obj_weight > 0:
-                    self.criteria[k] -= (config.nn_obj_weight * cross_entropy)
+#            for k in self.criteria:
+#                if config.crf_obj_weight > 0:
+#                    self.criteria[k] -= (config.crf_obj_weight * \
+#                                         self.log_likelihood)
+#                if config.nn_obj_weight > 0:
+#                    self.criteria[k] -= (config.nn_obj_weight * cross_entropy)
             # corresponding training steps, gradient clipping
             optimizers = {}
             for k in self.criteria:
@@ -584,32 +585,43 @@ class CRF:
         total_binclf = 0.
         n_batches = len(data) / batch_size
         batch = Batch()
+        sess = tf.get_default_session()
         for i in range(n_batches):
             batch.read(data, i * batch_size, config, fill=True)
             f_dict = make_feed_crf(self, batch, config.dropout_keep_prob)
             if config.verbose and (i == 0):
                 print('First crit: %f' % (criterion.eval(feed_dict=f_dict),))
             train_step.run(feed_dict=f_dict)
-            crit = criterion.eval(feed_dict=f_dict)
+            inputs = [criterion, self.l1_norm, self.binclf_loss, self.accuracy]
+            if config.crf_obj_weight > 0:
+                inputs.append(self.log_likelihood)
+            ret = sess.run(inputs, feed_dict=f_dict)
+            crit = ret[0]
+            l1 = ret[1]
+            binclf = ret[2]
+            train_accuracy = ret[3]
+            if config.crf_obj_weight > 0:
+                ll = ret[-1]
+            else:
+                ll = 0.
             total_crit += crit
-            total_ll += self.log_likelihood.eval(feed_dict=f_dict)
-            total_l1 += self.l1_norm.eval(feed_dict=f_dict)
-            total_binclf += self.binclf_loss.eval(feed_dict=f_dict)
+            total_ll += ll
+            total_l1 += l1
+            total_binclf += binclf
             if config.verbose and i % 50 == 0:
-                train_accuracy = self.accuracy.eval(feed_dict=f_dict)
                 print("step %d of %d, training accuracy %f, criterion %f,"\
-                      " ll %f" %
-                      (i, n_batches, train_accuracy, crit,
-                       self.log_likelihood.eval(feed_dict=f_dict)))
+                      " ll %f, binclf %f" % (i, n_batches, train_accuracy,
+                                             crit, ll, binclf))
         print 'total crit', total_crit / n_batches
         print 'total ll', total_ll / n_batches
         print 'total l1', total_l1 / n_batches
         print 'total binclf', total_binclf / n_batches
         return (total_crit / n_batches, total_l1 / n_batches)
 
-    def binclf_stats(self, f_dict):
-        labels = np.array(f_dict[self.binclf_labels], np.int)
-        preds = tf.squeeze(self.binclf_output, [-1]).eval(feed_dict=f_dict)
+    def binclf_stats(self, predictions, binclf_labels, config):
+        labels = binclf_labels
+        output = self.binclf_output
+        preds = predictions
         preds = np.minimum((preds * 2.).astype(np.int), 1)
         tp = np.sum((labels + preds) == 2)
         fp = np.sum((labels - preds) == -1)
@@ -629,16 +641,27 @@ class CRF:
         total_tn = 0.
         total_fn = 0.
         total = 0.
+        sess = tf.get_default_session()
         for i in range(len(data) / batch_size):
             batch.read(data, i * batch_size, config, fill=True)
             f_dict = make_feed_crf(self, batch, 1.0)
-            total_accuracy += self.accuracy.eval(feed_dict=f_dict)
+            inputs = [self.accuracy, self.l1_norm, self.binclf_loss]
+            inputs.append(tf.squeeze(self.binclf_output, [-1]))
             if config.crf_obj_weight > 0:
-                total_ll += self.log_likelihood.eval(feed_dict=f_dict)
-            total_l1 += self.l1_norm.eval(feed_dict=f_dict)
-            total_binclf += self.binclf_loss.eval(feed_dict=f_dict)
+                inputs.append(self.log_likelihood)
+            ret = sess.run(inputs, feed_dict=f_dict)
+            acc = ret[0]
+            l1 = ret[1]
+            binclf = ret[2]
+            total_accuracy += acc
+            if config.crf_obj_weight > 0:
+                total_ll += ret[-1]
+            total_l1 += l1
+            total_binclf += binclf
+            preds = ret[3]
+            tp, fp, tn, fn = self.binclf_stats(preds, \
+                          np.array(f_dict[self.binclf_labels], np.int), config)
             total += 1
-            tp, fp, tn, fn = self.binclf_stats(f_dict)
             total_tp += tp
             total_fp += fp
             total_tn += tn
@@ -649,16 +672,32 @@ class CRF:
                       total_accuracy / total, total_ll / total,
                       total_l1 / total, total_binclf / total))
         if config.verbose:
-            prec = total_tp / (total_tp + total_fp)
-            recall = total_tp / (total_tp + total_fn)
-            print 'binclf_tp', int(total_tp)
-            print 'binclf_fp', int(total_fp)
-            print 'binclf_tn', int(total_tn)
-            print 'binclf_fn', int(total_fn)
-            print 'binclf_acc', ((total_tp + total_tn) / (total_tp + total_tn \
-                                                        + total_fp + total_fn))
-            print 'binclf_precision', prec
-            print 'binclf_recall', recall
-            print 'binclf_f1', (2. * (prec * recall) / (prec + recall))
+            if total_tp + total_tn + total_fp + total_fn > 0.:
+                acc = ((total_tp + total_tn) / (total_tp + \
+                                  total_tn + total_fp + total_fn))
+            else:
+                acc = 0.0
+            if total_tp + total_fp > 0.:
+                prec = total_tp / (total_tp + total_fp)
+            else:
+                prec = 0.0
+            if total_tp + total_fn > 0.:
+                recall = total_tp / (total_tp + total_fn)
+            else:
+                recall = 0.0
+            if prec + recall > 0.:
+                f1 = 2. * (prec * recall) / (prec + recall)
+            else:
+                f1 = 0.0
+            w = config.binclf_window_size
+            print 'binclf', w
+            print 'tp', int(total_tp),
+            print '\t fp', int(total_fp),
+            print '\t tn', int(total_tn),
+            print '\t fn', int(total_fn),
+            print '\t acc', acc,
+            print '\t prec', prec,
+            print '\t recall', recall,
+            print '\t f1', f1
         return (total_accuracy / total)
 
