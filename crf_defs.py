@@ -634,8 +634,8 @@ class CRF:
             f_dict = make_feed_crf(self, batch, 1.0)
             inputs = [self.accuracy, self.l1_norm]
             inputs.extend(self.binclf_ce)
-            for i in range(len(config.binclf_window_size)):
-                inputs.append(tf.squeeze(self.binclf_output[i], [-1]))
+            for j in range(len(config.binclf_window_size)):
+                inputs.append(tf.squeeze(self.binclf_output[j], [-1]))
             if config.crf_obj_weight > 0:
                 inputs.append(self.log_likelihood)
             ret = sess.run(inputs, feed_dict=f_dict)
