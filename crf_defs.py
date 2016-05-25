@@ -606,25 +606,54 @@ class CRF:
         print 'total l1', total_l1 / n_batches
         print 'total binclf', total_binclf / n_batches
         return (total_crit / n_batches, total_l1 / n_batches)
-    
+
+    def binclf_stats(self, f_dict):
+        labels = np.array(f_dict[self.binclf_labels], np.int)
+        preds = tf.squeeze(self.binclf_output, [-1]).eval(feed_dict=f_dict)
+        preds = np.minimum((preds * 2.).astype(np.int), 1)
+        tp = np.sum((labels + preds) == 2)
+        fp = np.sum((labels - preds) == -1)
+        tn = np.sum((labels + preds) == 0)
+        fn = np.sum((labels - preds) == 1)
+        return (tp, fp, tn, fn)
+
     def validate_accuracy(self, data, config):
         batch_size = config.batch_size
         batch = Batch()
         total_accuracy = 0.
         total_ll = 0.
+        total_l1 = 0.
+        total_binclf = 0.
+        total_tp = 0.
+        total_fp = 0.
+        total_tn = 0.
+        total_fn = 0.
         total = 0.
         for i in range(len(data) / batch_size):
             batch.read(data, i * batch_size, config, fill=True)
             f_dict = make_feed_crf(self, batch, 1.0)
-            dev_accuracy = self.accuracy.eval(feed_dict=f_dict)
-            total_accuracy += dev_accuracy
+            total_accuracy += self.accuracy.eval(feed_dict=f_dict)
             if config.crf_obj_weight > 0:
-                ll = self.log_likelihood.eval(feed_dict=f_dict)
-                total_ll += ll
+                total_ll += self.log_likelihood.eval(feed_dict=f_dict)
+            total_l1 += self.l1_norm.eval(feed_dict=f_dict)
+            total_binclf += self.binclf_loss.eval(feed_dict=f_dict)
             total += 1
+            tp, fp, tn, fn = self.binclf_stats(f_dict)
+            total_tp += tp
+            total_fp += fp
+            total_tn += tn
+            total_fn += fn
             if i % 100 == 0 and config.verbose:
-                print("%d of %d: \t map acc: %f \t ll:  %f" % \
-                      (i, len(data) / batch_size,
-                      total_accuracy / total, total_ll / total))
+                print("%d of %d: \t map acc: %f \t ll:  %f \t l1:  %f \t " \
+                      "binclf:  %f" % (i, len(data) / batch_size,
+                      total_accuracy / total, total_ll / total,
+                      total_l1 / total, total_binclf / total))
+        if config.verbose:
+            prec = total_tp / (total_tp + total_fp)
+            recall = total_tp / (total_tp + total_fn)
+            print 'binclf_acc', ((total_tp + total_tn) / (total_tp + total_tn \
+                                                        + total_fp + total_fn))
+            print 'binclf_recall', recall
+            print 'binclf_f1', (2. * (prec * recall) / (prec + recall))
         return (total_accuracy / total)
 
