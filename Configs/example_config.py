@@ -49,7 +49,8 @@ config.conv_dropout = [True, True, True]
 
 config.direct_window_size = 3
 
-config.binclf_window_size = 5
+config.binclf_window_size = [3,5,7]
+config.binclf_weight = [0.5,1.0,0.25]
 # TODO experiment with only the B's
 config.binclf_tags = set(['B', 'Bp', 'I', 'Ip', 'In', 'ID'])
 

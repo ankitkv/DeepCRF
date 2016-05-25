@@ -84,10 +84,12 @@ def main():
         print 'training', i, '\t', str(datetime.now())
         (_,l1) = crf.train_epoch(train_data_ready, config, params_crf)
         visualization['featmap'] = config.feature_maps
-        print 'validating', i, '\t', str(datetime.now())
+        print 'validating train', i, '\t', str(datetime.now())
         train_acc = crf.validate_accuracy(train_data_ready, config)
+        print 'train_acc', train_acc
+        print 'validating dev', i, '\t', str(datetime.now())
         dev_acc = crf.validate_accuracy(dev_data_ready, config)
-        print 'train_acc', train_acc, 'dev_acc', dev_acc
+        print 'dev_acc', dev_acc
         print 'tagging', i, '\t', str(datetime.now())
         preds = tag_dataset(train_data, config, params_crf, crf)
         sentences = preds_to_sentences(preds, config)

@@ -289,11 +289,10 @@ def binclf_layer(in_layer, labels, config):
                                config.param_clip)
     flat_input = tf.reshape(in_layer, [-1, input_size])
     transform = tf.matmul(flat_input, W_binclf) + b_binclf
-    out_layer = tf.reshape(tf.nn.sigmoid(transform),
-                           [batch_size, -1, 1])
+    out_layer = tf.reshape(tf.nn.sigmoid(transform), [batch_size, -1, 1])
     labels = tf.expand_dims(tf.cast(labels, 'float'), -1)
-    cross_entropy = tf.reduce_sum(labels*tf.log(tf.maximum(out_layer, 1e-15)) \
-                    + (1 - labels) * tf.log(tf.maximum(1 - out_layer, 1e-15)))
+    cross_entropy = tf.reduce_mean(labels*tf.log(tf.maximum(out_layer, 1e-15))\
+                     + (1 - labels) * tf.log(tf.maximum(1 - out_layer, 1e-15)))
     return (out_layer, cross_entropy)
 
 
