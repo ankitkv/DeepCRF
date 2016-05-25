@@ -651,8 +651,13 @@ class CRF:
         if config.verbose:
             prec = total_tp / (total_tp + total_fp)
             recall = total_tp / (total_tp + total_fn)
+            print 'binclf_tp', int(total_tp)
+            print 'binclf_fp', int(total_fp)
+            print 'binclf_tn', int(total_tn)
+            print 'binclf_fn', int(total_fn)
             print 'binclf_acc', ((total_tp + total_tn) / (total_tp + total_tn \
                                                         + total_fp + total_fn))
+            print 'binclf_precision', prec
             print 'binclf_recall', recall
             print 'binclf_f1', (2. * (prec * recall) / (prec + recall))
         return (total_accuracy / total)
