@@ -571,37 +571,43 @@ class CRF:
         total_binclf = [0. for i in config.binclf_weight]
         n_batches = len(data) / batch_size
         batch = Batch()
+        sess = tf.get_default_session()
         for i in range(n_batches):
             batch.read(data, i * batch_size, config, fill=True)
             f_dict = make_feed_crf(self, batch, config.dropout_keep_prob)
             if config.verbose and (i == 0):
                 print('First crit: %f' % (criterion.eval(feed_dict=f_dict),))
             train_step.run(feed_dict=f_dict)
-            crit = criterion.eval(feed_dict=f_dict)
+            inputs = [criterion, self.log_likelihood, self.l1_norm,
+                      self.accuracy]
+            inputs.extend(self.binclf_ce)
+            ret = sess.run(inputs, feed_dict=f_dict)
+            crit = ret[0]
+            ll = ret[1]
+            l1 = ret[2]
+            train_accuracy = ret[3]
+            binclf = ret[4:]
             total_crit += crit
-            total_ll += self.log_likelihood.eval(feed_dict=f_dict)
-            total_l1 += self.l1_norm.eval(feed_dict=f_dict)
-            for j, binclf_ce in enumerate(self.binclf_ce):
-                total_binclf[j] += binclf_ce.eval(feed_dict=f_dict)
+            total_ll += ll
+            total_l1 += l1
+            for j in range(len(self.binclf_ce)):
+                total_binclf[j] += ret[j+4]
             if config.verbose and i % 50 == 0:
-                train_accuracy = self.accuracy.eval(feed_dict=f_dict)
                 print("step %d of %d, training accuracy %f, criterion %f,"\
-                      " ll %f" %
-                      (i, n_batches, train_accuracy, crit,
-                       self.log_likelihood.eval(feed_dict=f_dict)))
+                      " ll %f, binclf %s" % (i, n_batches, train_accuracy,
+                                             crit, ll, str(binclf)))
         print 'total crit', total_crit / n_batches
         print 'total ll', total_ll / n_batches
         print 'total l1', total_l1 / n_batches
         print 'total binclf', np.array(total_binclf) / n_batches
         return (total_crit / n_batches, total_l1 / n_batches)
 
-    def binclf_stats(self, f_dict, config):
-        binclf_labels = np.array(f_dict[self.binclf_labels], np.int)
+    def binclf_stats(self, predictions, binclf_labels, config):
         stats = []
         for i in range(len(config.binclf_window_size)):
             labels = binclf_labels[i]
             output = self.binclf_output[i]
-            preds = tf.squeeze(output, [-1]).eval(feed_dict=f_dict)
+            preds = predictions[i]
             preds = np.minimum((preds * 2.).astype(np.int), 1)
             tp = np.sum((labels + preds) == 2)
             fp = np.sum((labels - preds) == -1)
@@ -622,17 +628,30 @@ class CRF:
         total_tn = [0. for i in config.binclf_window_size]
         total_fn = [0. for i in config.binclf_window_size]
         total = 0.
+        sess = tf.get_default_session()
         for i in range(len(data) / batch_size):
             batch.read(data, i * batch_size, config, fill=True)
             f_dict = make_feed_crf(self, batch, 1.0)
-            total_accuracy += self.accuracy.eval(feed_dict=f_dict)
+            inputs = [self.accuracy, self.l1_norm]
+            inputs.extend(self.binclf_ce)
+            for i in range(len(config.binclf_window_size)):
+                inputs.append(tf.squeeze(self.binclf_output[i], [-1]))
             if config.crf_obj_weight > 0:
-                total_ll += self.log_likelihood.eval(feed_dict=f_dict)
-            total_l1 += self.l1_norm.eval(feed_dict=f_dict)
-            for j, binclf_ce in enumerate(self.binclf_ce):
-                total_binclf[j] += binclf_ce.eval(feed_dict=f_dict)
+                inputs.append(self.log_likelihood)
+            ret = sess.run(inputs, feed_dict=f_dict)
+            acc = ret[0]
+            l1 = ret[1]
+            total_accuracy += acc
+            if config.crf_obj_weight > 0:
+                total_ll += ret[-1]
+            total_l1 += l1
+            for j in range(len(self.binclf_ce)):
+                total_binclf[j] += ret[j+2]
+            pred_start = 2+len(self.binclf_ce)
+            preds = ret[pred_start:(pred_start+len(config.binclf_window_size))]
+            stats = self.binclf_stats(preds, \
+                          np.array(f_dict[self.binclf_labels], np.int), config)
             total += 1
-            stats = self.binclf_stats(f_dict, config)
             for j, stat in enumerate(stats):
                 total_tp[j] += stat[0]
                 total_fp[j] += stat[1]
