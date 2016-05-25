@@ -144,7 +144,7 @@ def main():
 #            break
 #        else:
 #            print 'patience:', patience
-#        i += 1
+        i += 1
         sys.stdout.flush()
         sys.stderr.flush()
     sess.close()
