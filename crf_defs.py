@@ -283,6 +283,7 @@ def log_pots(un_pots_layer, bin_pots_layer, config, params,
 def binclf_layer(in_layer, labels, config):
     batch_size = config.batch_size
     input_size = int(in_layer.get_shape()[2])
+    w1 = config.binclf_recall_imp
     W_binclf = tf.clip_by_norm(weight_variable([input_size, 1], name='binclf'),
                                config.param_clip)
     b_binclf = tf.clip_by_norm(bias_variable([1], name='binclf'),
@@ -291,8 +292,10 @@ def binclf_layer(in_layer, labels, config):
     transform = tf.matmul(flat_input, W_binclf) + b_binclf
     out_layer = tf.reshape(tf.nn.sigmoid(transform), [batch_size, -1, 1])
     labels = tf.expand_dims(tf.cast(labels, 'float'), -1)
-    cross_entropy = tf.reduce_mean(labels*tf.log(tf.maximum(out_layer, 1e-15))\
-                     + (1 - labels) * tf.log(tf.maximum(1 - out_layer, 1e-15)))
+    cross_entropy = tf.reduce_mean(
+            labels * tf.log(tf.maximum(out_layer, 1e-15)) * w1 + \
+            (1 - labels) * tf.log(tf.maximum(1 - out_layer, 1e-15)) * (1. - w1)
+        )
     return (out_layer, cross_entropy)
 
 
@@ -618,11 +621,10 @@ class CRF:
         print 'total binclf', total_binclf / n_batches
         return (total_crit / n_batches, total_l1 / n_batches)
 
-    def binclf_stats(self, predictions, binclf_labels, config):
+    def binclf_stats(self, preds, binclf_labels, config):
         labels = binclf_labels
         output = self.binclf_output
-        preds = predictions
-        preds = np.minimum((preds * 2.).astype(np.int), 1)
+        preds = (preds >= config.binclf_stats_thres).astype(np.int)
         tp = np.sum((labels + preds) == 2)
         fp = np.sum((labels - preds) == -1)
         tn = np.sum((labels + preds) == 0)

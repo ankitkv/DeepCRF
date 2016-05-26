@@ -157,6 +157,10 @@ if __name__ == "__main__":
                         help="location of configuration file")
     parser.add_argument("-dropout", "--dropout",
                         help="dropout keep probability")
+    parser.add_argument("-recall", "--recall",
+                        help="binary classification recall weight")
+    parser.add_argument("-thres", "--thres",
+                        help="binary classification stats threshold")
     args = parser.parse_args()
     if args.config_file:
         config_file = os.path.abspath(args.config_file)
@@ -166,5 +170,13 @@ if __name__ == "__main__":
         dropout = float(args.dropout)
         print 'Using the provided keep_prob value of', dropout
         config.dropout_keep_prob = dropout
+    if args.recall:
+        recall = float(args.recall)
+        print 'Using the provided recall value of', recall
+        config.binclf_recall_imp = recall
+    if args.thres:
+        thres = float(args.thres)
+        print 'Using the provided thres value of', thres
+        config.binclf_stats_thres = thres
     with tf.Graph().as_default():
         main()
