@@ -429,7 +429,8 @@ class CRF:
             if reuse:
                 tf.get_variable_scope().reuse_variables()
             # initial embedding
-            (out_layer1, direct_emb1, embeddings1) = feature_layer(
+            if config.binclf_weight > 0:
+                (out_layer1, direct_emb1, embeddings1) = feature_layer(
                                                                 self.input_ids,
                                                                 config, params,
                                                                 name='emb1',
@@ -439,22 +440,22 @@ class CRF:
                                                                 config, params,
                                                                 name='emb2',
                                                                 reuse=reuse)
-            params.embeddings1 = embeddings1
-            params.embeddings2 = embeddings2
+            params.embeddings = embeddings2
             for feat in config.l1_list:
-                self.l1_norm += L1L2_norm(params.embeddings1[feat])
-                self.l1_norm += L1L2_norm(params.embeddings2[feat])
+                self.l1_norm += L1L2_norm(params.embeddings[feat])
             if config.verbose:
                 print('features layer done')
             # convolution
             if config.use_convo:
-                for i in range(len(config.conv_window[0])):
-                    (out_layer1, _, _) = convo_layer(out_layer1, config,
-                                                     params, i, 0,
-                                                     name='conv1'+str(i))
-                    out_layer1 = tf.nn.relu(out_layer1)
-                    if config.conv_dropout[0][i]:
-                        out_layer1 = tf.nn.dropout(out_layer1, self.keep_prob)
+                if config.binclf_weight > 0:
+                    for i in range(len(config.conv_window[0])):
+                        (out_layer1, _, _) = convo_layer(out_layer1, config,
+                                                         params, i, 0,
+                                                         name='conv1'+str(i))
+                        out_layer1 = tf.nn.relu(out_layer1)
+                        if config.conv_dropout[0][i]:
+                            out_layer1 = tf.nn.dropout(out_layer1,
+                                                       self.keep_prob)
                 for i in range(len(config.conv_window[1])):
                     (out_layer2, W_conv, b_conv) = convo_layer(out_layer2,
                                                            config, params, i,1,
@@ -466,14 +467,16 @@ class CRF:
                 params.b_conv = b_conv
                 if config.verbose:
                     print('convolution layer done')
-            out_layer1 = gating_layer(out_layer1, direct_emb1, config,
-                                      name='gating1')
+            if config.binclf_weight > 0:
+                out_layer1 = gating_layer(out_layer1, direct_emb1, config,
+                                          name='gating1')
             out_layer2 = gating_layer(out_layer2, direct_emb2, config,
                                       name='gating2')
-            (out_layer1, binclf_loss) = binclf_layer(out_layer1,
+            if config.binclf_weight > 0:
+                (out_layer1, binclf_loss) = binclf_layer(out_layer1,
                                                     self.binclf_labels, config)
-            self.binclf_output = out_layer1
-            out_layer2 = out_layer2 * out_layer1
+                self.binclf_output = out_layer1
+                out_layer2 = out_layer2 * out_layer1
             out_layer = out_layer2
             self.out_layer = out_layer
             ### SEQU-NN
@@ -541,10 +544,14 @@ class CRF:
             ### OPTIMIZATION
             # different criteria
             self.criteria = {}
-            self.binclf_loss = binclf_loss
-            self.criteria['likelihood'] = (config.l1_reg * self.l1_norm) - \
-                                          (config.binclf_weight * binclf_loss)
+            if config.binclf_weight > 0:
+                self.binclf_loss = binclf_loss
+            else:
+                self.binclf_loss = tf.zeros([])
+            self.criteria['likelihood'] = (config.l1_reg * self.l1_norm)
             for k in self.criteria:
+                if config.binclf_weight > 0:
+                    self.criteria[k] -= (config.binclf_weight * binclf_loss)
                 if config.crf_obj_weight > 0:
                     self.criteria[k] -= (config.crf_obj_weight * \
                                          self.log_likelihood)
@@ -612,8 +619,8 @@ class CRF:
             total_binclf += binclf
             if config.verbose and i % 50 == 0:
                 print("step %d of %d, training accuracy %f, criterion %f,"\
-                      " ll %f, binclf %f" % (i, n_batches, train_accuracy,
-                                             crit, ll, binclf))
+                      " ll %f, l1 %f, binclf %f" % (i, n_batches,
+                      train_accuracy, crit, ll, l1, binclf))
         print 'total crit', total_crit / n_batches
         print 'total ll', total_ll / n_batches
         print 'total l1', total_l1 / n_batches
@@ -647,7 +654,8 @@ class CRF:
             batch.read(data, i * batch_size, config, fill=True)
             f_dict = make_feed_crf(self, batch, 1.0)
             inputs = [self.accuracy, self.l1_norm, self.binclf_loss]
-            inputs.append(tf.squeeze(self.binclf_output, [-1]))
+            if config.binclf_weight > 0:
+                inputs.append(tf.squeeze(self.binclf_output, [-1]))
             if config.crf_obj_weight > 0:
                 inputs.append(self.log_likelihood)
             ret = sess.run(inputs, feed_dict=f_dict)
@@ -659,20 +667,21 @@ class CRF:
                 total_ll += ret[-1]
             total_l1 += l1
             total_binclf += binclf
-            preds = ret[3]
-            tp, fp, tn, fn = self.binclf_stats(preds, \
-                          np.array(f_dict[self.binclf_labels], np.int), config)
             total += 1
-            total_tp += tp
-            total_fp += fp
-            total_tn += tn
-            total_fn += fn
+            if config.binclf_weight > 0:
+                preds = ret[3]
+                tp, fp, tn, fn = self.binclf_stats(preds, \
+                          np.array(f_dict[self.binclf_labels], np.int), config)
+                total_tp += tp
+                total_fp += fp
+                total_tn += tn
+                total_fn += fn
             if i % 100 == 0 and config.verbose:
                 print("%d of %d: \t map acc: %f \t ll:  %f \t l1:  %f \t " \
                       "binclf:  %f" % (i, len(data) / batch_size,
                       total_accuracy / total, total_ll / total,
                       total_l1 / total, total_binclf / total))
-        if config.verbose:
+        if config.binclf_weight > 0 and config.verbose:
             if total_tp + total_tn + total_fp + total_fn > 0.:
                 acc = ((total_tp + total_tn) / (total_tp + \
                                   total_tn + total_fp + total_fn))
