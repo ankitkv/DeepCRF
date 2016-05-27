@@ -37,32 +37,31 @@ direct_features = collections.OrderedDict({
                   })
 
 crf_obj_weight = -1
-nn_obj_weight = -1
+nn_obj_weight = 1.0
 
 config = Config(input_features=input_features, direct_features=direct_features,
                 tag_list=tag_list, crf_obj_weight=crf_obj_weight,
                 nn_obj_weight=nn_obj_weight)
 
 config.conv_dim = [[80,160,256,50],
-                   [1]]
+                   [80,160,256]]
 config.conv_window = [[5,5,1,1],
-                      [1]]
+                      [5,5,1]]
 config.conv_dropout = [[True, True, True, True],
-                       [False]]
+                       [True, True, True]]
 
 config.direct_window_size = 3
 
 config.binclf_window_size = 5
-config.binclf_weight = 1e3
-config.binclf_recall_imp = 0.5
-# TODO experiment with only the B's
+config.binclf_weight = 1.0
+config.binclf_recall_imp = 0.97
 config.binclf_tags = set(['B', 'Bp', 'I', 'Ip', 'In', 'ID'])
 config.binclf_stats_thres = 0.5
 
 config.l1_list = [f for f in
         ('word', 'lemma', 'normal', 'prefix', 'suffix', 'med_prefix')
     if f in input_features]
-config.l1_reg = 0.
+config.l1_reg = 1e-4
 
 config.dropout_keep_prob = 0.75
 
