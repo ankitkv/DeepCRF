@@ -96,17 +96,27 @@ def feature_layer(in_layer, config, params, name, reuse=False):
     return (embedding_layer, direct_emb, param_vars)
 
 
-# TODO
-def distance_dependent(in_layer, config, params, reuse=False):
-    conv_window = config.conv_window
-    output_size = config.conv_dim
-    batch_size = config.batch_size # int(in_layer.get_shape()[0])
-    input_size = config.features_dim #int(in_layer.get_shape()[2])
-    moved = [0] * conv_window
-    for i in range(conv_window):
-        moved[i] = tf.pad(in_layer, [[0, 0], [i, 0], [0, 0]])
-        moved[i] = tf.slice(moved[i], [0, 0, 0], [-1, -1, -1])
-
+# TODO save params and make reusable
+def embgating_layer(in_layer, config, name):
+    conv_window = config.embgating_window
+    emb_size = config.features_dim
+    batch_size = config.batch_size
+    W_conv = weight_variable([conv_window, 1, emb_size, emb_size],
+                             name=name)
+    W_reshaped = tf.reshape(W_conv, [conv_window, -1])
+    diag = [1 for i in range(conv_window)]
+    diag[conv_window // 2] = 0
+    I = tf.constant(np.diag(np.array(diag, dtype=np.float32)))
+    W_reshaped = tf.matmul(I, W_reshaped)
+    W_conv = tf.reshape(W_reshaped, [conv_window, 1, emb_size, emb_size])
+    b_conv = bias_variable([emb_size], name=name)
+    W_conv = tf.clip_by_norm(W_conv, config.param_clip)
+    b_conv = tf.clip_by_norm(b_conv, config.param_clip)
+    reshaped = tf.reshape(in_layer, [batch_size, -1, 1, emb_size])
+    conv_layer = tf.reshape(conv2d(reshaped, W_conv),
+                            [batch_size, -1, emb_size], name=name) + b_conv
+    gating = tf.nn.sigmoid(conv_layer)
+    return tf.mul(in_layer, gating)
 
 
 def convo_layer(in_layer, config, params, i, net, name, reuse=False):
@@ -445,6 +455,7 @@ class CRF:
                 self.l1_norm += L1L2_norm(params.embeddings[feat])
             if config.verbose:
                 print('features layer done')
+            out_layer2 = embgating_layer(out_layer2, config, name='embgating')
             # convolution
             if config.use_convo:
                 if config.binclf_weight > 0:
