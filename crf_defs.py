@@ -305,7 +305,7 @@ def binclf_layer(in_layer, labels, config):
     cross_entropy = tf.reduce_mean(
             labels * tf.log(tf.maximum(out_layer, 1e-15)) * w1 + \
             (1 - labels) * tf.log(tf.maximum(1 - out_layer, 1e-15)) * (1. - w1)
-        )
+        ) # TODO: replace by the underflow-avoiding formulation
     return (out_layer, cross_entropy)
 
 
@@ -334,6 +334,7 @@ def optim_outputs(outcome, targets, config, params):
     batch_size = int(outcome.get_shape()[0])
     n_outputs = int(outcome.get_shape()[2])
     # We are currently using cross entropy as criterion
+    # TODO: replace by the underflow-avoiding formulation
     cross_entropy = tf.reduce_sum(targets * tf.log(tf.maximum(outcome, 1e-15)))
     # We also compute the per-tag accuracy
     correct_prediction = tf.equal(tf.argmax(outcome, 2), tf.argmax(targets, 2))
