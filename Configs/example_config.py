@@ -72,7 +72,7 @@ config.learning_rate = 0.001
 config.gradient_clip = 5
 config.param_clip = 50
 
-config.num_epochs = 10
+config.num_epochs = 15
 config.patience_increase = 1.8
 
 config.optimizer = 'adam'
