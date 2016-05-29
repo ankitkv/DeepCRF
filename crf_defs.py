@@ -301,11 +301,11 @@ def binclf_layer(in_layer, labels, config):
     flat_input = tf.reshape(in_layer, [-1, input_size])
     transform = tf.matmul(flat_input, W_binclf) + b_binclf
     out_layer = tf.reshape(tf.nn.sigmoid(transform), [batch_size, -1, 1])
-    labels = tf.expand_dims(tf.cast(labels, 'float'), -1)
-    cross_entropy = tf.reduce_mean(
-            labels * tf.log(tf.maximum(out_layer, 1e-15)) * w1 + \
-            (1 - labels) * tf.log(tf.maximum(1 - out_layer, 1e-15)) * (1. - w1)
-        ) # TODO: replace by the underflow-avoiding formulation
+    out_unscaled = tf.reshape(transform, [batch_size, -1])
+    labels = tf.cast(labels, 'float')
+    L = tf.log(1.0 + tf.exp(-out_unscaled))
+    cross_entropy = tf.reduce_mean(L * (-labels + w1 - 1) + \
+                                   out_unscaled * ((1 - w1) * labels + w1 - 1))
     return (out_layer, cross_entropy)
 
 
@@ -324,20 +324,27 @@ def predict_layer(in_layer, config, params, reuse=False, name='Predict'):
         W_pred = tf.clip_by_norm(W_pred, config.param_clip)
         b_pred = tf.clip_by_norm(b_pred, config.param_clip)
     flat_input = tf.reshape(in_layer, [-1, input_size])
-    pre_scores = tf.nn.softmax(tf.matmul(flat_input, W_pred) + b_pred)
+    unscaled_scores = tf.matmul(flat_input, W_pred) + b_pred
+    pre_scores = tf.nn.softmax(unscaled_scores)
     preds_layer = tf.reshape(pre_scores,[batch_size, -1, config.n_tag_windows])
-    return (preds_layer, W_pred, b_pred)
+    unscaled_preds_layer = tf.reshape(unscaled_scores,
+                                      [batch_size, -1, config.n_tag_windows])
+    return (preds_layer, unscaled_preds_layer, W_pred, b_pred)
 
 
 # Takes tag window predictions, and returns cross-entropy and accuracy
-def optim_outputs(outcome, targets, config, params):
-    batch_size = int(outcome.get_shape()[0])
-    n_outputs = int(outcome.get_shape()[2])
+def optim_outputs(unscaled_outcome, targets, config, params):
+    batch_size = int(unscaled_outcome.get_shape()[0])
+    n_outputs = int(unscaled_outcome.get_shape()[2])
     # We are currently using cross entropy as criterion
-    # TODO: replace by the underflow-avoiding formulation
-    cross_entropy = tf.reduce_sum(targets * tf.log(tf.maximum(outcome, 1e-15)))
+    pred_max = tf.expand_dims(tf.reduce_max(unscaled_outcome, 2), -1)
+    shifted_preds = unscaled_outcome - pred_max
+    logexp_preds = tf.expand_dims(tf.log(tf.reduce_sum(
+                                               tf.exp(shifted_preds), 2)), -1)
+    cross_entropy = tf.reduce_sum(targets * (shifted_preds - logexp_preds))
     # We also compute the per-tag accuracy
-    correct_prediction = tf.equal(tf.argmax(outcome, 2), tf.argmax(targets, 2))
+    correct_prediction = tf.equal(tf.argmax(unscaled_outcome, 2),
+                                  tf.argmax(targets, 2))
     accuracy = tf.reduce_sum(tf.cast(correct_prediction,
                                      "float") * tf.reduce_sum(targets, 2)) /\
         tf.reduce_sum(targets)
@@ -493,13 +500,14 @@ class CRF:
             self.out_layer = out_layer
             ### SEQU-NN
             if config.nn_obj_weight > 0:
-                (preds_layer, W_pred, b_pred) = predict_layer(out_layer,
-                                                              config, params,
-                                                              reuse=reuse)
+                (preds_layer, unscaled_preds, W_pred, b_pred) = predict_layer(
+                                                                out_layer,
+                                                                config, params,
+                                                                reuse=reuse)
                 params.W_pred = W_pred
                 params.b_pred = b_pred
                 self.preds_layer = preds_layer
-                (cross_entropy, accu_nn) = optim_outputs(preds_layer,
+                (cross_entropy, accu_nn) = optim_outputs(unscaled_preds,
                                                          self.nn_targets,
                                                          config, params)
                 self.accuracy = accu_nn

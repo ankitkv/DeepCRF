@@ -91,9 +91,9 @@ def main():
         print '\nvalidating dev', i, '\t', str(datetime.now())
         dev_acc = crf.validate_accuracy(dev_data_ready, config)
         print 'dev_acc', dev_acc
-        print '\nvalidating test', i, '\t', str(datetime.now())
-        test_acc = crf.validate_accuracy(test_data_ready, config)
-        print 'test_acc', test_acc
+        #print '\nvalidating test', i, '\t', str(datetime.now())
+        #test_acc = crf.validate_accuracy(test_data_ready, config)
+        #print 'test_acc', test_acc
         print
         print 'tagging', i, '\t', str(datetime.now())
         preds = tag_dataset(train_data, config, params_crf, crf)
