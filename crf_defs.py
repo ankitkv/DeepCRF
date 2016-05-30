@@ -337,11 +337,10 @@ def optim_outputs(unscaled_outcome, targets, config, params):
     batch_size = int(unscaled_outcome.get_shape()[0])
     n_outputs = int(unscaled_outcome.get_shape()[2])
     # We are currently using cross entropy as criterion
-    pred_max = tf.expand_dims(tf.reduce_max(unscaled_outcome, 2), -1)
-    shifted_preds = unscaled_outcome - pred_max
-    logexp_preds = tf.expand_dims(tf.log(tf.reduce_sum(
-                                               tf.exp(shifted_preds), 2)), -1)
-    cross_entropy = tf.reduce_sum(targets * (shifted_preds - logexp_preds))
+    lsm_outcome = tf.nn.log_softmax(tf.reshape(unscaled_outcome,
+                                               [-1, n_outputs]))
+    cross_entropy = tf.reduce_sum(tf.reshape(targets, [-1, n_outputs]) * \
+                                  lsm_outcome)
     # We also compute the per-tag accuracy
     correct_prediction = tf.equal(tf.argmax(unscaled_outcome, 2),
                                   tf.argmax(targets, 2))
