@@ -31,10 +31,9 @@ class Config:
                  gradient_clip=1e0, param_clip=1e2, init_words=False,
                  input_features={}, direct_features={},
                  use_convo=True, conv_window=[5,5], conv_dropout=[True,True],
-                 conv_dim=[200,200],
-                 pot_size=1,
-                 pred_window=3, tag_list=[],
+                 conv_dim=[200,200], pot_size=1, pred_window=3, tag_list=[],
                  verbose=False, num_epochs=10, num_predict=5,
+                 use_charcnn=False, charcnn_kernels={2:20, 5:50},
                  improvement_threshold=0.999, patience_increase=2.0):
         # optimization parameters
         self.batch_size = batch_size
@@ -50,11 +49,18 @@ class Config:
         self.criterion = criterion          # ['likelihood', 'pseudo_ll']
         self.gradient_clip = gradient_clip
         self.param_clip = param_clip
+        # CharCNN
+        self.use_charcnn = use_charcnn
+        if use_charcnn:
+            self.charcnn_kernels = charcnn_kernels
+        else:
+            self.charcnn_kernels = {}
         # input layer
         self.init_words = init_words
         self.input_features = input_features
         self.direct_features = direct_features
-        self.features_dim = sum(input_features.values()) - \
+        self.features_dim = sum(input_features.values()) + \
+               sum(self.charcnn_kernels.values()) - \
                sum(v for k,v in input_features.items() if k in direct_features)
         # convolutional layer
         self.use_convo = use_convo
