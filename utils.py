@@ -106,10 +106,13 @@ class Config:
         self.improvement_threshold = improvement_threshold
         self.patience_increase = patience_increase
 
-    def make_mappings(self, data):
+    def make_mappings(self, data, config):
         self.feature_maps = dict([(feat, {'lookup': {'_unk_': 0},
                                           'reverse': ['_unk_']})
                                   for feat in data[0][0]])
+        if config.use_charcnn:
+            self.feature_maps['charcnn'] = {'lookup': {'\0': 0},
+                                            'reverse': ['\0']}
         window = self.direct_window_size // 2
         for sentence in data:
             for i, token in enumerate(sentence):
@@ -135,6 +138,14 @@ class Config:
                         self.feature_maps[feat]['lookup'][ft] = \
                                     len(self.feature_maps[feat]['reverse'])
                         self.feature_maps[feat]['reverse'] += [ft]
+                if config.use_charcnn:
+                    word = token[config.charcnn_feature]
+                    feat = 'charcnn'
+                    for ft in word:
+                        if ft not in self.feature_maps[feat]['lookup']:
+                            self.feature_maps[feat]['lookup'][ft] = \
+                                        len(self.feature_maps[feat]['reverse'])
+                            self.feature_maps[feat]['reverse'] += [ft]
 
     def to_string(self):
         st = ''
@@ -149,6 +160,8 @@ class Batch:
         # features: {'word': 'have', 'pos': 'VB', ...} ->
         #                              [1345, 12 * num_features + 1,...]
         self.features = []
+        # Character-level input.
+        self.charinput = []
         # tags: 'B' -> 1
         self.tags = []
         # tags_one_hot: 'B' -> [0, 1, 0, 0, 0, 0]
@@ -191,6 +204,9 @@ class Batch:
             labels.append(sent_labels)
         return labels
 
+    def prepare_charinput(self, words, max_word_len):
+        pass # TODO
+
     def read(self, data, start, config, fill=False):
         num_features = len(config.input_features)
         batch_data = data[start:start + config.batch_size]
@@ -198,6 +214,10 @@ class Batch:
                             for feat in config.input_features]
                            for token in sentence]
                           for sentence in batch_data]
+        if config.use_charcnn:
+            words = [[token[config.charcnn_feature] for token in sentence]
+                     for sentence in batch_data]
+            max_word_len = max(len(w) for sentence in words for w in sentence)
         batch_labels = [[config.label_dict[token['label']]
                          for token in sentence]
                         for sentence in batch_data]
@@ -224,6 +244,8 @@ class Batch:
                 self.features[i] = [[0] * num_features] * pre_len + \
                                    self.features[i] + \
                                    [[0] * num_features] * post_len
+                if config.use_charcnn:
+                    words[i] = [''] * pre_len + words[i] + [''] * post_len
                 self.tags[i] = [0] * pre_len + self.tags[i] + [0] * post_len
                 self.tags_one_hot[i] = [[0] * config.n_tags] * pre_len + \
                                        self.tags_one_hot[i] + \
@@ -233,6 +255,8 @@ class Batch:
                                               self.tag_windows_one_hot[i] + \
                                               [[0] * config.n_outcomes] * \
                                               post_len
+        if config.use_charcnn:
+            self.prepare_charinput(words, max_word_len)
         self.binclf_labels = self.make_binclf_labels(config, self.tags)
         mid = config.pot_size - 1
         padded_tags = [[0] * mid + sentence + [0] * mid
@@ -351,6 +375,7 @@ def L2_norm(tensor):
 # making a feed dictionary:
 def make_feed_crf(model, batch, keep_prob):
     f_dict = {model.input_ids: batch.features,
+              model.char_input_ids: batch.charinput,
               model.pot_indices: batch.tag_neighbours_lin,
               model.window_indices: batch.tag_windows_lin,
               model.mask: batch.mask,

@@ -46,6 +46,9 @@ def bias_variable(shape, name='weight'):
 ###################################
 # NN layers                       #
 ###################################
+def charcnn_layer(in_layer, config, name):
+    pass # TODO
+
 def feature_layer(in_layer, config, params, name, reuse=False):
     in_features = config.input_features
     features_dim = config.features_dim
@@ -419,6 +422,8 @@ class CRF:
         num_features = len(config.input_features)
         # input_ids <- batch.features
         self.input_ids = tf.placeholder(tf.int32)
+        # char_input_ids <- batch.charinput
+        self.char_input_ids = tf.placeholder(tf.int32)
         # mask <- batch.mask
         self.mask = tf.placeholder(tf.float32)
         # pot_indices <- batch.tag_neighbours_lin
@@ -460,6 +465,10 @@ class CRF:
             params.embeddings = embeddings2
             for feat in config.l1_list:
                 self.l1_norm += L1L2_norm(params.embeddings[feat])
+            if config.use_charcnn:
+                char_layer2 = charcnn_layer(self.char_input_ids, config,
+                                           name='charcnn2')
+                out_layer2 = tf.concat(2, [out_layer2, char_layer2])
             if config.verbose:
                 print('features layer done')
             out_layer2 = embgating_layer(out_layer2, config, name='embgating')

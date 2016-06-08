@@ -35,7 +35,7 @@ def main():
     #dev_data = dev_data[:100]
     #test_data = test_data[:100]
 
-    config.make_mappings(train_data + dev_data + test_data)
+    config.make_mappings(train_data + dev_data + test_data, config)
     # initialize the parameters
     if config.init_words:
         word_vectors = read_vectors(vecs_file,
