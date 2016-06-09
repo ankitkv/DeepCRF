@@ -111,8 +111,11 @@ class Config:
                                           'reverse': ['_unk_']})
                                   for feat in data[0][0]])
         if config.use_charcnn:
-            self.feature_maps['charcnn'] = {'lookup': {'\0': 0},
-                                            'reverse': ['\0']}
+            self.feature_maps['charcnn'] = {
+                'lookup': {'\0': 0, config.charcnn_start: 1,
+                           config.charcnn_end: 2},
+                'reverse': ['\0', config.charcnn_start, config.charcnn_end]
+            }
         window = self.direct_window_size // 2
         for sentence in data:
             for i, token in enumerate(sentence):

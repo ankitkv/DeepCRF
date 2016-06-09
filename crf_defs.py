@@ -29,8 +29,8 @@ def _chain_sum_product_grad(op, grad_forward_ms, grad_backward_ms,
 # Auxiliary functions             #
 ###################################
 
-def conv2d(x, W):
-    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
+def conv2d(x, W, padding='SAME'):
+    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding=padding)
 
 
 def weight_variable(shape, name='weight'):
@@ -52,7 +52,7 @@ def highway_layer(in_layer, config, name):
 
 def charcnn_layer(in_layer, config, name):
     input_shape = tf.shape(in_layer)
-    shape = [len(feature_mappings['charcnn']['reverse']),
+    shape = [len(config.feature_maps['charcnn']['reverse']),
              config.charcnn_emb_size]
     initial = tf.truncated_normal(shape, stddev=0.1)
     emb_matrix = tf.Variable(initial,
@@ -62,16 +62,12 @@ def charcnn_layer(in_layer, config, name):
     reshaped = tf.reshape(embedding, tf.pack([-1, input_shape[2], 1,
                                               config.charcnn_emb_size]))
     kernel_outs = []
-    for size, count in charcnn_kernels.items():
+    for size, count in config.charcnn_kernels.items():
         W_conv = weight_variable([size, 1, config.charcnn_emb_size, count],
                                  name=name + str(size))
-        b_conv = bias_variable([count], name=name + str(size))
         W_conv = tf.clip_by_norm(W_conv, config.param_clip)
-        b_conv = tf.clip_by_norm(b_conv, config.param_clip)
-        conv_out = tf.tanh(conv2d(reshaped, W_conv) + b_conv)
-        pool_out = tf.nn.max_pool(conv_out, tf.pack([1, input_shape[2], 1, 1]),
-                                  [1, 1, 1, 1], 'VALID',
-                                  name=name+str(size)+'_pool')
+        conv_out = tf.tanh(conv2d(reshaped, W_conv, padding='VALID'))
+        pool_out = tf.reduce_max(conv_out, 1)
         kernel_out = tf.reshape(pool_out, tf.pack([input_shape[0],
                                                    input_shape[1], count]))
         kernel_outs.append(kernel_out)
