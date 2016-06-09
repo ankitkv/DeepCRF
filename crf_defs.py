@@ -47,7 +47,22 @@ def bias_variable(shape, name='weight'):
 # NN layers                       #
 ###################################
 def highway_layer(in_layer, config, name):
-    return in_layer # TODO
+    batch_size = config.batch_size
+    input_size = sum(config.charcnn_kernels.values())
+    reshaped = tf.reshape(in_layer, [-1, input_size])
+    W_highway = weight_variable([input_size, input_size], name=name)
+    W_highway = tf.clip_by_norm(W_highway, config.param_clip)
+    b_highway = bias_variable([input_size], name=name)
+    b_highway = tf.clip_by_norm(b_highway, config.param_clip)
+    W_transform = weight_variable([input_size, input_size],
+                                  name=name+'_transform')
+    W_transform = tf.clip_by_norm(W_transform, config.param_clip)
+    b_transform = bias_variable([input_size], name=name+'_transform')
+    b_transform = tf.clip_by_norm(b_transform, config.param_clip)
+    gate = tf.sigmoid(tf.matmul(reshaped, W_transform) + b_transform)
+    activation = tf.nn.relu(tf.matmul(reshaped, W_highway) + b_highway)
+    out = gate * activation + (1. - gate) * reshaped
+    return tf.reshape(out, [batch_size, -1, input_size])
 
 
 def charcnn_layer(in_layer, config, name):
@@ -66,7 +81,9 @@ def charcnn_layer(in_layer, config, name):
         W_conv = weight_variable([size, 1, config.charcnn_emb_size, count],
                                  name=name + str(size))
         W_conv = tf.clip_by_norm(W_conv, config.param_clip)
-        conv_out = tf.tanh(conv2d(reshaped, W_conv, padding='VALID'))
+        b_conv = bias_variable([count], name=name + str(size))
+        b_conv = tf.clip_by_norm(b_conv, config.param_clip)
+        conv_out = tf.tanh(conv2d(reshaped, W_conv, padding='VALID') + b_conv)
         pool_out = tf.reduce_max(conv_out, 1)
         kernel_out = tf.reshape(pool_out, tf.pack([input_shape[0],
                                                    input_shape[1], count]))
