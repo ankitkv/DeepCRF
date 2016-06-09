@@ -46,8 +46,40 @@ def bias_variable(shape, name='weight'):
 ###################################
 # NN layers                       #
 ###################################
+def highway_layer(in_layer, config, name):
+    return in_layer # TODO
+
+
 def charcnn_layer(in_layer, config, name):
-    pass # TODO
+    input_shape = tf.shape(in_layer)
+    shape = [len(feature_mappings['charcnn']['reverse']),
+             config.charcnn_emb_size]
+    initial = tf.truncated_normal(shape, stddev=0.1)
+    emb_matrix = tf.Variable(initial,
+                             name=name+'_embedding')
+    embedding = tf.nn.embedding_lookup(emb_matrix, in_layer,
+                                       name=name+'_lookup')
+    reshaped = tf.reshape(embedding, tf.pack([-1, input_shape[2], 1,
+                                              config.charcnn_emb_size]))
+    kernel_outs = []
+    for size, count in charcnn_kernels.items():
+        W_conv = weight_variable([size, 1, config.charcnn_emb_size, count],
+                                 name=name + str(size))
+        b_conv = bias_variable([count], name=name + str(size))
+        W_conv = tf.clip_by_norm(W_conv, config.param_clip)
+        b_conv = tf.clip_by_norm(b_conv, config.param_clip)
+        conv_out = tf.tanh(conv2d(reshaped, W_conv) + b_conv)
+        pool_out = tf.nn.max_pool(conv_out, tf.pack([1, input_shape[2], 1, 1]),
+                                  [1, 1, 1, 1], 'VALID',
+                                  name=name+str(size)+'_pool')
+        kernel_out = tf.reshape(pool_out, tf.pack([input_shape[0],
+                                                   input_shape[1], count]))
+        kernel_outs.append(kernel_out)
+    out = tf.concat(2, kernel_outs)
+    for i in range(config.charcnn_highway_layers):
+        out = highway_layer(out, config, name=name+'_highway'+str(i))
+    return out
+
 
 def feature_layer(in_layer, config, params, name, reuse=False):
     in_features = config.input_features

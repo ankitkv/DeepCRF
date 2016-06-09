@@ -47,6 +47,9 @@ config = Config(input_features=input_features, direct_features=direct_features,
                 nn_obj_weight=nn_obj_weight, use_charcnn=use_charcnn,
                 charcnn_kernels=charcnn_kernels)
 
+config.charcnn_start = '\2'
+config.charcnn_end = '\3'
+
 config.charcnn_emb_size = 15
 config.charcnn_feature = 'normal'
 config.charcnn_highway_layers = 2

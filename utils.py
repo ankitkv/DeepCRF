@@ -204,8 +204,19 @@ class Batch:
             labels.append(sent_labels)
         return labels
 
-    def prepare_charinput(self, words, max_word_len):
-        pass # TODO
+    def prepare_charinput(self, words, max_word_len, config):
+        self.charinput = []
+        for sentence in words:
+            wordlist = []
+            for word in sentence:
+                current_len = len(word)
+                pre_len = (max_word_len - current_len) / 2
+                post_len = max_word_len - pre_len - current_len
+                padded_word = '\0'*pre_len + word + '\0'*post_len
+                charlist = [config.feature_maps['charcnn']['lookup'][c]
+                            for c in padded_word]
+                wordlist.append(charlist)
+            self.charinput.append(wordlist)
 
     def read(self, data, start, config, fill=False):
         num_features = len(config.input_features)
@@ -215,9 +226,12 @@ class Batch:
                            for token in sentence]
                           for sentence in batch_data]
         if config.use_charcnn:
-            words = [[token[config.charcnn_feature] for token in sentence]
+            words = [[config.charcnn_start + token[config.charcnn_feature] + \
+                      config.charcnn_end for token in sentence]
                      for sentence in batch_data]
             max_word_len = max(len(w) for sentence in words for w in sentence)
+            max_word_len = max(max_word_len + 2,
+                               max(config.charcnn_kernels.keys()))
         batch_labels = [[config.label_dict[token['label']]
                          for token in sentence]
                         for sentence in batch_data]
@@ -256,7 +270,7 @@ class Batch:
                                               [[0] * config.n_outcomes] * \
                                               post_len
         if config.use_charcnn:
-            self.prepare_charinput(words, max_word_len)
+            self.prepare_charinput(words, max_word_len, config)
         self.binclf_labels = self.make_binclf_labels(config, self.tags)
         mid = config.pot_size - 1
         padded_tags = [[0] * mid + sentence + [0] * mid
