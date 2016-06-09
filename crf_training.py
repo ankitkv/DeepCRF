@@ -153,6 +153,8 @@ def main():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Testing the models for \
                                      various parameter values')
+    parser.add_argument("-cpu", "--force_cpu", action='store_true',
+                        help="Force CPU")
     parser.add_argument("-conf", "--config_file",
                         help="location of configuration file")
     parser.add_argument("-dropout", "--dropout",
@@ -166,6 +168,9 @@ if __name__ == "__main__":
         config_file = os.path.abspath(args.config_file)
     print 'Starting'
     execfile(config_file)
+    if args.force_cpu:
+        print 'Forcing CPU'
+        config.force_cpu = True
     if args.dropout:
         dropout = float(args.dropout)
         print 'Using the provided keep_prob value of', dropout
@@ -178,5 +183,10 @@ if __name__ == "__main__":
         thres = float(args.thres)
         print 'Using the provided thres value of', thres
         config.binclf_stats_thres = thres
-    with tf.Graph().as_default():
-        main()
+    if config.force_cpu:
+        with tf.Graph().as_default():
+            with tf.device('/cpu:0'):
+                main()
+    else:
+        with tf.Graph().as_default():
+            main()

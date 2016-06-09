@@ -87,6 +87,7 @@ config.num_epochs = 15
 config.patience_increase = 1.8
 
 config.optimizer = 'adam'
-config.batch_size = 20
+config.batch_size = 15
 
 config.verbose = True
+config.force_cpu = False
