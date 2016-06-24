@@ -34,12 +34,17 @@ def conv2d(x, W, padding='SAME'):
 
 
 def weight_variable(shape, name='weight'):
-    initial = tf.truncated_normal(shape, stddev=0.1)
-    return tf.Variable(initial, name=name+'_W')
+    return tf.get_variable(name, shape,
+                           initializer=tf.contrib.layers.xavier_initializer())
+
+
+def weight_variable_conv(shape, name='weight'):
+    return tf.get_variable(name, shape,
+                     initializer=tf.contrib.layers.xavier_initializer_conv2d())
 
 
 def bias_variable(shape, name='weight'):
-    initial = tf.constant(0.1, shape=shape)
+    initial = tf.constant(1.0, shape=shape)
     return tf.Variable(initial, name=name+'_b')
 
 
@@ -78,7 +83,7 @@ def charcnn_layer(in_layer, config, name):
                                               config.charcnn_emb_size]))
     kernel_outs = []
     for size, count in config.charcnn_kernels.items():
-        W_conv = weight_variable([size, 1, config.charcnn_emb_size, count],
+        W_conv = weight_variable_conv([size,1,config.charcnn_emb_size,count],
                                  name=name + str(size))
         W_conv = tf.clip_by_norm(W_conv, config.param_clip)
         b_conv = bias_variable([count], name=name + str(size))
@@ -149,7 +154,7 @@ def embgating_layer(in_layer, config, name):
     conv_window = config.embgating_window
     emb_size = config.features_dim
     batch_size = config.batch_size
-    W_conv = weight_variable([conv_window, 1, emb_size, emb_size],
+    W_conv = weight_variable_conv([conv_window, 1, emb_size, emb_size],
                              name=name)
     W_reshaped = tf.reshape(W_conv, [conv_window, -1])
     diag = [1 for i in range(conv_window)]
@@ -180,7 +185,7 @@ def convo_layer(in_layer, config, params, i, net, name, reuse=False):
         W_conv = params.W_conv
         b_conv = params.b_conv
     else:
-        W_conv = weight_variable([conv_window, 1, input_size, output_size],
+        W_conv = weight_variable_conv([conv_window,1,input_size,output_size],
                                  name=name)
         b_conv = bias_variable([output_size], name=name)
         W_conv = tf.clip_by_norm(W_conv, config.param_clip)
