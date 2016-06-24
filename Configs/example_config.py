@@ -64,6 +64,8 @@ config.conv_dropout = [[True, True, True, True],
 
 config.direct_window_size = 3
 
+config.damp_distrib = 1.0
+
 config.binclf_window_size = 5
 config.binclf_weight = -1
 config.binclf_recall_imp = 0.8

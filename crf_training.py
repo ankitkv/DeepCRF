@@ -163,6 +163,8 @@ if __name__ == "__main__":
                         help="binary classification recall weight")
     parser.add_argument("-thres", "--thres",
                         help="binary classification stats threshold")
+    parser.add_argument("-damp", "--damp",
+                        help="softmax damping")
     args = parser.parse_args()
     if args.config_file:
         config_file = os.path.abspath(args.config_file)
@@ -183,6 +185,10 @@ if __name__ == "__main__":
         thres = float(args.thres)
         print 'Using the provided thres value of', thres
         config.binclf_stats_thres = thres
+    if args.damp:
+        damp = float(args.damp)
+        print 'Using the provided damp value of', damp
+        config.damp_distrib = damp
     if config.force_cpu:
         with tf.Graph().as_default():
             with tf.device('/cpu:0'):

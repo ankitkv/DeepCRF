@@ -378,7 +378,7 @@ def predict_layer(in_layer, config, params, reuse=False, name='Predict'):
         b_pred = tf.clip_by_norm(b_pred, config.param_clip)
     flat_input = tf.reshape(in_layer, [-1, input_size])
     unscaled_scores = tf.matmul(flat_input, W_pred) + b_pred
-    pre_scores = tf.nn.softmax(unscaled_scores)
+    pre_scores = tf.nn.softmax(unscaled_scores * config.damp_distrib)
     preds_layer = tf.reshape(pre_scores,[batch_size, -1, config.n_tag_windows])
     unscaled_preds_layer = tf.reshape(unscaled_scores,
                                       [batch_size, -1, config.n_tag_windows])
